@@ -471,56 +471,47 @@ def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, b
 # In[ ]:
 
 #fit random forest and finds MSE
-def fit_rfr_and_find_MSE(features, df_T, df_CV, d):
-    
-    #initialize the numpy array that will hold the test-mse data
-    mse_array_test = np.zeros((i_max,j_max))
-    mse_array_train = np.zeros((i_max,j_max))
+def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
     
     if options == 0:
-        rfr = sk.RandomForestRegressor(n_estimators=100, oob_score = True, n_jobs = -1)
-        forest = sk.RandomForestClassifier(n_estimators=100, random_state=0)
-        
+        rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1)
+        forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)
         #call the function that defines the trainig and holdout data
         X_T, y_T, X_CV, y_CV = make_numpy_arrays_for_tr_and_holdout(features, df_T, df_CV, ref_column)                
-        
         #fit a linear regression on the training data
         rfr.fit(X_T, y_T)  
-        
         #fit the holdout data for the day
-        df_H['O3_fit'] = rfr.predict(X_CV)
-        
+        df_CV_rf = df_CV.copy()
+        df_CV_rf['O3_fit'] = rfr.predict(X_CV)
         #plot the feature importances
-        plot_importance(rfr, forest)
+        plot_importance(rfr, forest, features)
         #plot_ref_and_pod_ozone_for_each_day(df_fit[df_fit.day != d], df_fit[df_fit.day == d])
         #plot_temp_and_rh_for_each_day(df_fit[df_fit.day != d], df_fit[df_fit.day == d])
         #plot_fitted_and_ref_ozone_for_each_day(df_H['O3_fit'], df_fit[df_fit.day == d])
-        
         MSE_CV = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
         print d,'Cross-Validatin MSE: ', MSE_CV
-        return MSE_CV
+        return MSE_CV, df_CV_rf
         
     else:
         i_max = 1 # max features
         j_max = 1 # max depth
         i_min = 0
         j_min = 0
+         #initialize the numpy array that will hold the test-mse data
+        mse_array_CV = np.zeros((i_max,j_max))
         #loop through all combinations of max_features and max_depth
         for i in range(i_min,i_max):
             j = j_min
             while j < j_max:
                 #Set up the random forest regression features
-                rfr = sk.RandomForestRegressor(n_estimators=250, oob_score = True, n_jobs = -1, max_features = i+1, max_depth = j+1)
-                forest = sk.RandomForestClassifier(n_estimators=100, random_state=0)
-                        
-                #call the r=function that defines the trainig and holdout data
+                rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1, max_features = i+1, max_depth = j+1)
+                forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)      
+                #call the function that defines the trainig and holdout data
                 X_T, y_T, X_CV, y_CV = make_numpy_arrays_for_tr_and_holdout(features, df_T, df_CV, ref_column)   
-                
                 #fit a linear regression on the training data
                 rfr.fit(X_T, y_T)  
-                #plot_importance(rfr, forest)
-            
+                plot_importance(rfr, forest, features)
                 #add the mse for each i and j to the 2D array (i is on one axis, j is on the other, and mse is a grid)
                 mse_array_CV[i,j] = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
@@ -532,7 +523,7 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d):
 
 # In[ ]:
 
-def plot_importance(rfr,forest):
+def plot_importance(rfr,forest, features):
     importances = rfr.feature_importances_
     std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
     print std
@@ -540,42 +531,48 @@ def plot_importance(rfr,forest):
     
     # Print the feature ranking
     print("Feature ranking:")
-    for f in range(len(fs_features)):
-        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]])),fs_features[indices[f]]
+    for f in range(len(features)):
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]])),features[indices[f]]
     
     #Plot the feature importances of the forest
     plt.figure(figsize=(15,5))
     plt.title("Feature importances")
-    plt.bar(range(len(fs_features)), importances[indices], color="r", align="center")
+    plt.bar(range(len(features)), importances[indices], color="r", align="center")
     #, yerr = std[indices]
-    plt.xticks(range(len(fs_features)), indices)
-    plt.xlim([-1, len(fs_features)])
+    plt.xticks(range(len(features)), indices)
+    plt.xlim([-1, len(features)])
     plt.show()
     
 
 # In[ ]:
 
-def find_MSE_random_forest(df, features, days):
+def find_MSE_random_forest(df, features, days, options, ref_column):
+    MSE_CV = []
     count = 1
     #Calculate the training and holdout RSS for each step.
     #take the mean MSE for all of the possible holdout days (giving cross-validation error)
     for d in days:
-        MSE_CV_day = fit_rfr_and_find_MSE(fs_features, df_fits[df_fits.day != d], df_fits[df_fits.day == d], d)
+        if options == 0:
+            MSE_CV_day, df_rf_CV = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
+        else: 
+            MSE_CV_day = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
+        
+        if count == 1 and options == 0:
+            df_rf = df_rf_CV
+        elif options == 0:
+            df_rf = pd.concat([df_rf, df_rf_CV])
 
-        day_date.append(d)
-        #count_append.append(count)
-
-        if count == 1 and options == 1:
+        if count == 1:
             MSE_CV = MSE_CV_day
-        elif count == 1:
-            MSE_CV.append(MSE_CV_day)
-        elif options == 1:
-            MSE_CV = np.dstack((MSE_CV,MSE_CV_day))
         else:
-            MSE_CV.append(MSE_CV_day)
+            #MSE_CV.append(MSE_CV_day)
+            MSE_CV = np.dstack((MSE_CV,MSE_CV_day))
 
         count +=1   
-    return MSE_CV
+    if options == 0:
+        return MSE_CV, df_rf
+    else:
+        return MSE_CV
 
     
 # In[ ]:
@@ -619,7 +616,27 @@ def plot_ref_and_pod_ozone_for_each_day(df_T, df_H):
     plt.plot((df_H['inverse_o3']), marker = '.', linestyle = '--', label = 'pod')
     plt.show()
     
+#In[ ]:    
+def plot_param_select_MSE(MSE_CV_per_day, i, j):  
+    fig = plt.figure(figsize=(20, 20))
 
+    ax = fig.add_subplot(111)
+    ax.set_title('colorMap')
+    imgplot = plt.imshow(MSE_CV_per_day)
+    imgplot.set_cmap('hot')
+    #imgplot.set_clim(60,71)
+    ax.set_aspect('equal')
+
+    plt.colorbar(orientation='vertical')
+    plt.show()
+    plt.xlabel('Maximum Tree Depth')
+    plt.ylabel('Maximum Features at Each Split')
+    
+    min_MSE_CV = MSE_CV_per_day.min()
+    i,j = np.where(MSE_CV_per_day == min_MSE_CV)
+    print 'Max features = ' + str(i)
+    print 'Max depth = ' + str(j)
+    print 'MSE for the holdout data = ' + str(min_MSE_CV)
 
 # In[ ]:
 
