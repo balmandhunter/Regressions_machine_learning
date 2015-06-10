@@ -494,8 +494,8 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         return MSE_CV, df_CV_rf
         
     else:
-        i_max = 1 # max features
-        j_max = 1 # max depth
+        i_max = 10 # max features
+        j_max = 10 # max depth
         i_min = 0
         j_min = 0
          #initialize the numpy array that will hold the test-mse data
@@ -511,7 +511,6 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
                 X_T, y_T, X_CV, y_CV = make_numpy_arrays_for_tr_and_holdout(features, df_T, df_CV, ref_column)   
                 #fit a linear regression on the training data
                 rfr.fit(X_T, y_T)  
-                plot_importance(rfr, forest, features)
                 #add the mse for each i and j to the 2D array (i is on one axis, j is on the other, and mse is a grid)
                 mse_array_CV[i,j] = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
@@ -531,13 +530,13 @@ def plot_importance(rfr,forest, features):
     
     # Print the feature ranking
     print("Feature ranking:")
-    for f in range(len(features)):
+    for f in range(10):
         print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]])),features[indices[f]]
     
     #Plot the feature importances of the forest
     plt.figure(figsize=(15,5))
     plt.title("Feature importances")
-    plt.bar(range(len(features)), importances[indices], color="r", align="center")
+    plt.bar(range(10), importances[indices], color="r", align="center")
     #, yerr = std[indices]
     plt.xticks(range(len(features)), indices)
     plt.xlim([-1, len(features)])
@@ -615,8 +614,9 @@ def plot_ref_and_pod_ozone_for_each_day(df_T, df_H):
     ax2.legend(loc = 0)
     plt.plot((df_H['inverse_o3']), marker = '.', linestyle = '--', label = 'pod')
     plt.show()
-    
+
 #In[ ]:    
+
 def plot_param_select_MSE(MSE_CV_per_day, i, j):  
     fig = plt.figure(figsize=(20, 20))
 
@@ -632,8 +632,7 @@ def plot_param_select_MSE(MSE_CV_per_day, i, j):
     plt.xlabel('Maximum Tree Depth')
     plt.ylabel('Maximum Features at Each Split')
     
-    min_MSE_CV = MSE_CV_per_day.min()
-    i,j = np.where(MSE_CV_per_day == min_MSE_CV)
+    i,j = np.where(MSE_CV_per_day == MSE_CV_per_day.min())
     print 'Max features = ' + str(i)
     print 'Max depth = ' + str(j)
     print 'MSE for the holdout data = ' + str(min_MSE_CV)
@@ -663,7 +662,25 @@ def find_daily_min_max(features, df_T, df_H,d):
 
 # In[ ]:
 
+def plot_daily_mse_and_features_for_day(MSE_H, day_date,feat_to_compare, title, sec_axis_label):
+    from matplotlib import rc
+    rc('mathtext', default='regular')
 
+    indices = day_date
+    
+    #Plot the feature importances of the forest
+    fig = plt.figure(figsize=(15,5))
+    ax = fig.add_subplot(111)
+    plt.title(title, fontsize = 30)
+    ax.bar(range(len(day_date)), MSE_H,  color="r", align="center")
+    plt.xticks(range(len(day_date)), indices)
+    plt.xlim([-1, len(day_date)])
+    ax.set_xlabel('Date', fontsize = 18)
+    ax.set_ylabel('MSE (ppb)', fontsize = 18)
+    ax2 = ax.twinx()  
+    ax2.set_ylabel(sec_axis_label, fontsize = 18)
+    plt.plot(range(len(day_date)), feat_to_compare, marker = 'o', linestyle = '--')
+    plt.show()
 
 
 # In[ ]:
