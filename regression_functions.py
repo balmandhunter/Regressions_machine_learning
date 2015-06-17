@@ -165,26 +165,36 @@ from sklearn.learning_curve import learning_curve
 
 def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
 
-    plt.figure()
-    plt.title(title)
+    plt.figure(facecolor='w', figsize = (10,8), frameon = "True")
+    #plt.title(title, size = 25)
+
+    font = {'family' : 'normal',
+        'weight' : 'normal',
+        'size'   : '20'}
+
+    plt.rc('font', **font)  # pass in the font dict as kwargs
+
     if ylimit is not None:
         plt.ylim(ylimit)
-    plt.xlabel("Training examples")
-    plt.ylabel("Mean Squared Error")
+    plt.xlabel("Training Samples", size = 20)
+    plt.ylabel("Mean Squared Error", size = 20)
     train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, cv = cv, train_sizes = train_sizes, scoring = scoring)
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
     valid_scores_std = np.std(valid_scores, axis=1)
-    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    plt.grid(b=True, which='major', color='#696969', linestyle=':')
 
     plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, alpha=0.1, color="r")
     plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, alpha=0.1, color="g")
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
     plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
 
-    plt.legend(loc="best")
+    leg = plt.legend(loc="best", prop={'size':20}, frameon = 'True')
+    leg.get_frame().set_facecolor('w')
+    #fig.savefig('learning_curve.png', bbox_inches= 'tight')
     return plt
+
 
 
 # ####Define a function to find fitted values.
@@ -215,7 +225,7 @@ def find_fitted_cv_values_for_best_features(df, fs_features, num_good_feat, Mode
 # In[4]:
 
 def fitted_vs_ref_plot(df, i, ref_column):
-    plt.figure(figsize = (5,5))
+    plt.figure(figsize = (5,5), facecolor='w')
     plt.plot(df[ref_column],df.O3_fit,linestyle = '',marker = '.',alpha = 0.3)
     plt.xlabel('Reference O3 Conc.')
     plt.ylabel('Predicted O3 Conc (Cross-Validation)')
@@ -232,14 +242,14 @@ def assign_pod_calibration_times(pod_num, time_chunk):
     if time_chunk == 1:
         if pod_num == 'D0' or pod_num == 'F3' or pod_num == 'F4' or pod_num == 'D3' or pod_num == 'F5' or pod_num == 'F6'  or pod_num == 'F7':
             xlim = ['2014-07-11 00:00:00', '2014-07-13 00:00:00']
-        elif pod_num == 'D8' :
+        elif pod_num == 'D8' or pod_num == 'F8':
             xlim = ['2014-07-11 00:00:00', '2014-7-12 00:00:00']
         elif pod_num == 'D4' or pod_num == 'D6' or pod_num == 'D8' or pod_num == 'N4' or pod_num == 'N7' or pod_num == 'N8':
             xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
-        elif pod_num == 'N3' or pod_mun == 'N5':
+        elif pod_num == 'N3' or pod_num == 'N5':
             xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
     else: 
-        if pod_num == 'D0':
+        if pod_num == 'D0' or pod_num == 'F8':
             xlim = ['2014-08-30 00:00:00', '2014-09-4 00:00:00']
         elif pod_num == 'D4' or pod_num == 'F4':
             xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
@@ -396,12 +406,12 @@ def plot_error_vs_features(score, MSE):
 def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     lambda_ridge = []
     mean_score_lambda = []
-    i = 0.0000000001
+    i = 0.000000001
     n = 1
     coefs = []
   
 
-    while i < 100000000:
+    while i < 10000000000:
         #define the model
         model = Model(alpha=i)    
         #fit the ridge regression for the lambda
