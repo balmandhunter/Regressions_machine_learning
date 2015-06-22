@@ -104,7 +104,8 @@ def fitting_func(model, X_T, y_T, X_CV, y_CV):
 def fit_holdout(model, X_T, y_T, X_H, y_H):
     model.fit(X_T, y_T)  
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
-    return np.mean((y_H - model.predict(X_H))**2), np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2), t_stat, p_value
+    diff_in_mean = (np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60]))/np.mean(y_H[y_H >= 60])*100
+    return np.mean((y_H - model.predict(X_H))**2), np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2), t_stat, p_value, round(diff_in_mean, 1)
 
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
@@ -144,14 +145,15 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, lol)
         mean_CV_MSE_all_days = np.mean(MSE_CV)
         mean_train_MSE_all_Days = np.mean(MSE_T)
 
+    diff_in_mean_cv = (np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60]))/np.mean(y_CV_all[y_CV_all >= 60])*100
     X_H, y_H, X_T, y_T = make_numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
-    MSE_H, score_H, t_stat, p_value = fit_holdout(model, X_T, y_T, X_H, y_H)
+    MSE_H, score_H, t_stat, p_value, diff_in_mean_H = fit_holdout(model, X_T, y_T, X_H, y_H)
     score_cv = -np.mean(cross_val_score(model, X_T, y_T, cv = lol, scoring = make_scorer(custom_high_scoring_function, greater_is_better = False)))
         
     print "Training RMSE:", round(np.sqrt(mean_train_MSE_all_Days),1)
-    print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", "High-Value CV RMSE:", round(np.sqrt(score_cv)) 
-    print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H))
-    print "Holdout t-statistic:", round(t_stat, 2), ",", "Holdout p-value:", p_value
+    print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", "High-Value CV RMSE:", round(np.sqrt(score_cv)), "CV High Diff. in Mean.:", round(diff_in_mean_cv,1), "%"
+    print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H)), "Holdout High Diff. in Mean.:", diff_in_mean_H, "%"
+    
 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all
 
@@ -168,15 +170,24 @@ def plot_hist(values, other, title):
     abs_max_dec = max(max(values), max(other))
     abs_min = myround(abs_min_dec, 5)
     abs_max = myround(abs_max_dec, 5)
-    print abs_max
     pl.hist(h, normed=True, bins=np.arange(abs_min-10,abs_max+10, 5))      #use this to draw histogram of your data
     pl.show()  
 
 
 def custom_high_scoring_function(y, y_pred):
-    high_sum = np.mean((y[y >= 60] - y_pred[y >= 60])**2)
+    high_sum = np.mean((y[y >= 50] - y_pred[y >= 50])**2)
     return high_sum
 
+def plot_error_vs_features(score, MSE):
+    x = range(0, len(score))
+    plt.plot(x, score, 'bo-')
+    plt.plot(x, MSE, 'ro-')
+    plt.ylim((0,60))
+    plt.xlabel('Number of Features')
+    plt.ylabel('Error')
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    print 'Custom Score: ', score
+    print 'MSE: ', MSE
 
 
 def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
@@ -249,13 +260,13 @@ def fitted_vs_ref_plot(df, i, ref_column):
 #Define a function that assigns time chunks to each pod for plotting
 def assign_pod_calibration_times(pod_num, time_chunk):
     if time_chunk == 1:
-        if pod_num == 'F3' or pod_num == 'F4' or pod_num == 'D3' or pod_num == 'F5' or pod_num == 'F6'  or pod_num == 'F7':
+        if pod_num == 'F3' or pod_num == 'F4' or pod_num == 'F5' or pod_num == 'F6'  or pod_num == 'F7':
             xlim = ['2014-07-11 00:00:00', '2014-07-13 00:00:00']
         elif pod_num == 'D8' or pod_num == 'F8':
             xlim = ['2014-07-11 00:00:00', '2014-7-12 00:00:00']
         elif pod_num == 'D4' or pod_num == 'D6' or pod_num == 'D8' or pod_num == 'N4' or pod_num == 'N7' or pod_num == 'N8':
             xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
-        elif pod_num == 'N3' or pod_num == 'N5':
+        elif pod_num == 'N3' or pod_num == 'N5' or pod_num == 'D3':
             xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
         elif pod_num == 'D0':
             xlim = ['2014-07-10 00:00:00', '2014-7-13 00:00:00']
@@ -281,9 +292,12 @@ def assign_pod_calibration_times(pod_num, time_chunk):
 
 def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
     plt.figure(figsize = (15,10))
-    df[ref_column].plot(marker = '.',linestyle = ' ',)
-    xlim = assign_pod_calibration_times(pod_num, time_chunk)
-    df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
+    df[ref_column].plot(marker = '.',linestyle = ' ')
+    if time_chunk != 0:
+        xlim = assign_pod_calibration_times(pod_num, time_chunk)
+        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
+    else:
+        df.O3_fit.plot(marker = '.',linestyle = ' ')
     plt.ylabel('Residual Value')
 
 
