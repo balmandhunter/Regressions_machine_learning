@@ -9,12 +9,14 @@ import seaborn as sns
 import numpy as np
 import datetime as dt
 import pylab as pl
+import random
+import sys
+from scipy import stats
 
-
-
+import sklearn.ensemble as sk
 from sklearn.cross_validation import cross_val_score 
+from sklearn import linear_model
 from sklearn.cross_validation import KFold
-import sklearn.preprocessing as pp
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import Lasso
 from sklearn.decomposition import RandomizedPCA
@@ -24,13 +26,7 @@ from sklearn import cross_validation
 from sklearn.datasets import load_digits
 from sklearn.learning_curve import learning_curve
 import sklearn.decomposition
-import sklearn.ensemble as sk
-from sklearn import linear_model
-
-import random
-import sys
-from scipy import stats
-
+import sklearn.preprocessing as pp
 
 
 #Declare whether to process raw or filtered data.
@@ -46,6 +42,29 @@ def declare_filt_or_raw_dataset(which_data):
     return ref_column, leave_out_pod, pod_ozone
 
 
+def scale_features_and_create_day_column(df, ref_column):
+    df_scaled = df.copy() 
+    features = list(df_scaled.ix[:,1:len(df.columns)])
+    #Center feature values around zero and make them all have variance on the same order.
+    df_scaled = df_scaled[features].apply(lambda x: pp.scale(x))
+    df_sc = pd.concat([df_scaled, df[ref_column]], axis = 1)  
+    #add a 'day' column 
+    df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
+    return df_sc, features
+
+def sep_tr_and_holdout(df, ref_column):
+    days = df['day'].unique()
+    num_days = np.argmax(days)
+    days_tr = days[2:]
+    df_tr = df.loc[df['day'].isin(days_tr)]
+    df_hold = df.loc[df['day'].isin([days[0], days[1]])]
+    df_hold = df_hold[:len(df_hold['day'])-110]
+    return df_tr, df_hold, days_tr
+
+def create_custom_cv(df):
+    labels = df['day'].values
+    lol = cross_validation.LeaveOneLabelOut(labels)
+
 def make_numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
     X_T = df_T[features].values
     X_CV = df_CV[features].values
@@ -59,41 +78,6 @@ def make_numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column
     y_T = df_tr[ref_column].values
     y_H = df_H[ref_column].values
     return X_H, y_H, X_T, y_T
-
-
-def add_day_sep_tr_and_holdout(df, ref_column):
-    #create a 'day' column in the dataframe by mapping the index column
-    df['day'] = df.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
-    days = df['day'].unique()
-    
-    num_days = np.argmax(days)
-    days_tr = days[2:]
-    df_tr = df.loc[df['day'].isin(days_tr)]
-    df_hold = df.loc[df['day'].isin([days[0], days[1]])]
-    df_hold = df_hold[:len(df_hold['day'])-110]
-    
-    return df_tr, df_hold, days_tr
-
-
-def scale_features_and_create_day_column(df, ref_column):
-    df_scaled = df.copy()
-    #drop the day column from df_scaled
-    
-    features = list(df_scaled.ix[:,1:len(df.columns)])
-    #Center feature values around zero and make them all have variance on the same order.
-    df_scaled = df_scaled[features].apply(lambda x: pp.scale(x))
-    df_sc = pd.concat([df_scaled, df[ref_column]], axis = 1)
-    
-    #add the 'day' column back in
-    df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
-    
-    return df_sc, features
-
-
-def create_custom_cv(df):
-    labels = df['day'].values
-    lol = cross_validation.LeaveOneLabelOut(labels)
-
 
 def fitting_func(model, X_T, y_T, X_CV, y_CV):    
     #fit a linear regression on the training data
