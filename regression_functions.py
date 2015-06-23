@@ -44,64 +44,41 @@ def declare_filt_or_raw_dataset(which_data):
 
 def scale_features_and_create_day_column(df, ref_column):
     df_scaled = df.copy() 
-    #features = list(df_scaled.ix[:,0:len(df.columns)])
     features = [x for x in list(df_scaled.ix[:,0:len(df.columns)]) if x != ref_column]
     #Center feature values around zero and make them all have variance on the same order.
     df_scaled = df_scaled[features].apply(lambda x: pp.scale(x))
     df_sc = pd.concat([df_scaled, df[ref_column]], axis = 1)  
     #add a 'day' column 
     df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
-
-    time_chunk = []
-    df_sc['hour'] = df_sc.index.map(lambda dt: dt.hour)
-    for i in range(0,len(df_sc['hour'])):
-        if df_sc.hour[i] < 12:
-            time_chunk.append(1)
-        else: 
-            time_chunk.append(2)
-        
-    df_sc['time_chunk'] = time_chunk
-
+    #add a column that has the day and 'AM' or "PM"
+    df_sc['chunk'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day) + " " + ("AM" if dt.hour < 12 else "PM"))
     return df_sc, features
 
 def sep_tr_and_holdout(df, ref_column):
-    days = df['day'].unique()
-    days_tr = days[2:]
-    count = 1
-    chunk_num = np.zeros(len(df['day']))
-    df['day_shift'] = df['day'].shift(-1)
-    df['time_chunk_shift'] = df['time_chunk'].shift(-1)
-    for i in range(0,len(df['e2v03'])):
-            if i == 0:
-                chunk_num[i] = 1
-            elif df['day'][i] == df['day_shift'][i] and df['time_chunk'][i] == df['time_chunk_shift'][i]:
-                chunk_num[i] = count
-            else:
-                count += 1
-                chunk_num[i] = count
-    df['chunk_num'] = chunk_num
-    chunk_list = np.arange(1,len(df['chunk_num'].unique())+1)
+    #find the unique values of the day + AM/PM column
+    chunk_list = df.chunk.unique()
+    #shuffle the chunks of time
     np.random.shuffle(chunk_list)
+    #declare the first 4 chunks of the randomized list to be the holdout chunks
     hold_chunks = chunk_list[0:4]
-
-
-    df_tr = df[~df[chunk_num].isin(hold_chunks)]
-    df_hold = df.loc[df['day'].isin([days[0], days[1]])]
-    df_hold = df_hold[:len(df_hold['day'])-90]
-    return df_tr, df_hold, days_tr
+    chunks_tr = chunk_list[4:]
+    df_tr = df[~df.chunk.isin(hold_chunks)]
+    df_hold = df[df.chunk.isin(hold_chunks)]
+    #df_hold = df_hold[:len(df_hold['day'])-90]
+    return df_tr, df_hold, chunks_tr
 
 def create_custom_cv(df):
-    labels = df['day'].values
+    labels = df['chunk'].values
     lol = cross_validation.LeaveOneLabelOut(labels)
 
-def make_numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
+def numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
     X_T = df_T[features].values
     X_CV = df_CV[features].values
     y_T = df_T[ref_column].values
     y_CV = df_CV[ref_column].values
     return X_T, y_T, X_CV, y_CV
 
-def make_numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
+def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
     X_T = df_tr[features].values
     X_H = df_H[features].values
     y_T = df_tr[ref_column].values
@@ -122,7 +99,7 @@ def fit_holdout(model, X_T, y_T, X_H, y_H):
 
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
-def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, lol):
+def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol):
 
     #initialize the holdout and training MSE
     day_date = []
@@ -130,45 +107,86 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, lol)
     MSE_T = []
     y_CV_all = []
     X_pred_cv_all = []
+    first = True
     #Calculate the training and holdout RSS for each step.
     #take the mean MSE for all of the possible holdout days (giving cross-validation error)
-    for d in days:
-        
+    for d in chunk:   
         #call the df_subset function to make numpy arrays out of the training and holdout data
-        X_T, y_T, X_CV, y_CV= make_numpy_arrays_for_tr_and_cv(features, df_tr[df_tr.day != d], df_tr[df_tr.day == d], ref_column)
-                
-        MSE_CV_day, MSE_T_day, X_pred_cv= fitting_func(model, X_T, y_T, X_CV, y_CV)
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(
+            features, 
+            df_tr[df_tr.chunk != d], 
+            df_tr[df_tr.chunk == d], 
+            ref_column
+        )   
+        MSE_CV_day, MSE_T_day, X_pred_cv = fitting_func(model, X_T, y_T, X_CV, y_CV)
          
         #record the MSE for lambda for the day
         MSE_CV.append(MSE_CV_day)
         MSE_T.append(MSE_T_day)
 
-        if d == days[0]:
+        if first:
             X_pred_cv_all = X_pred_cv
             y_CV_all = y_CV
+            first = False
         else:
             X_pred_cv_all = np.concatenate([X_pred_cv_all, X_pred_cv])
             y_CV_all = np.concatenate([y_CV_all, y_CV])
 
-    
-        #record the day
+        #record the chunk
         day_date.append(d)
             
         #find the mean MSE of all of the days for the given value of lambda
         mean_CV_MSE_all_days = np.mean(MSE_CV)
         mean_train_MSE_all_Days = np.mean(MSE_T)
+            
+    df_cv = df_tr.copy()
+    df_cv['O3_fit'] = X_pred_cv_all
+    df_cv['ref_fit'] = y_CV_all
 
-    diff_in_mean_cv = (np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60]))/np.mean(y_CV_all[y_CV_all >= 60])*100
-    X_H, y_H, X_T, y_T = make_numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
+    df_H = df_H.copy()
+    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
+    model.fit(X_T, y_T)
+    df_H['O3_fit'] = model.predict(X_H)
+    df_H['ref_fit'] = y_H
+
+    diff_in_mean_cv = (np.mean(X_pred_cv_all[y_CV_all >= 60]) - 
+            np.mean(y_CV_all[y_CV_all >= 60])) /
+        np.mean(y_CV_all[y_CV_all >= 60]) * 100
+
+    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
     MSE_H, score_H, t_stat, p_value, diff_in_mean_H = fit_holdout(model, X_T, y_T, X_H, y_H)
-    score_cv = -np.mean(cross_val_score(model, X_T, y_T, cv = lol, scoring = make_scorer(custom_high_scoring_function, greater_is_better = False)))
+    score_cv = -np.mean(
+        cross_val_score(model, X_T, y_T, cv = lol, 
+        scoring = make_scorer(custom_high_scoring_function, greater_is_better = False)
+            )
+        )
         
     print "Training RMSE:", round(np.sqrt(mean_train_MSE_all_Days),1)
     print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", "High-Value CV RMSE:", round(np.sqrt(score_cv)), "CV High Diff. in Mean.:", round(diff_in_mean_cv,1), "%"
     print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H)), "Holdout High Diff. in Mean.:", diff_in_mean_H, "%"
     
+    return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
-    return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all
+def fitted_vs_ref_plot(df, i, ref_column):
+    plt.figure(figsize = (5,5), facecolor='w')
+    plt.plot(df.ref_fit, df.O3_fit, linestyle = '', marker = '.', alpha = 0.3)
+    plt.xlabel('Reference O3 Conc.')
+    plt.ylabel('Predicted O3 Conc (Cross-Validation)')
+    plt.plot([1, df.ref_fit.max()], [1,df.ref_fit.max()])
+    if i != 0:
+        plt.title('Number of features = ' + str(i))
+
+def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
+    plt.figure(figsize = (15,10))
+    df.ref_fit.plot(marker = '.',linestyle = ' ')
+    if time_chunk != 0:
+        xlim = assign_pod_calibration_times(pod_num, time_chunk)
+        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
+    else:
+        df.O3_fit.plot(marker = '.',linestyle = ' ')
+    plt.ylabel('Residual Value')
+
+
 
 def myround(x, base):
     return int(base * round(float(x)/base))
@@ -236,38 +254,10 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
     return plt
 
 
-def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_feat, Model, days, ref_column):
-    fitted_holdout_o3 = []
-    for d in days:    
-        #call the df_subset function to make numpy arrays out of the training and holdout data
-        X_T, y_T, X_CV, y_CV =  make_numpy_arrays_for_tr_and_cv(fs_features[:num_good_feat], df_T[df_T.day != d], df_T[df_T.day == d], ref_column) 
-        #fit a linear regression on the training data
-        model = Model
-        model.fit(X_T, y_T)
-        
-        if d == days[0]:
-            fitted_CV_o3 = model.predict(X_CV)
-        else:
-            fitted_CV_o3 = np.concatenate((fitted_CV_o3, model.predict(X_CV)))
-
-    df_lin_regr_best_feat_cv = df_T.copy()
-    df_lin_regr_best_feat_cv['O3_fit'] = fitted_CV_o3
-
-    df_lin_regr_best_feat_H = df_H.copy()
-    X_H, y_H, X_T, y_T = make_numpy_arrays_for_holdout_and_training(fs_features, df_H, df_T, ref_column)
-    model.fit(X_T, y_T)
-    df_lin_regr_best_feat_H['O3_fit'] = model.predict(X_H)
-    return df_lin_regr_best_feat_cv, df_lin_regr_best_feat_H
 
 
-def fitted_vs_ref_plot(df, i, ref_column):
-    plt.figure(figsize = (5,5), facecolor='w')
-    plt.plot(df[ref_column], df.O3_fit, linestyle = '', marker = '.', alpha = 0.3)
-    plt.xlabel('Reference O3 Conc.')
-    plt.ylabel('Predicted O3 Conc (Cross-Validation)')
-    plt.plot([1, df[ref_column].max()], [1,df[ref_column].max()])
-    if i != 0:
-        plt.title('Number of features = ' + str(i))
+
+
 
 
 #Define a function that assigns time chunks to each pod for plotting
@@ -302,16 +292,6 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-08-16 00:00:00', '2014-08-22 00:00:00']
     return xlim
 
-
-def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
-    plt.figure(figsize = (15,10))
-    df[ref_column].plot(marker = '.',linestyle = ' ')
-    if time_chunk != 0:
-        xlim = assign_pod_calibration_times(pod_num, time_chunk)
-        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
-    else:
-        df.O3_fit.plot(marker = '.',linestyle = ' ')
-    plt.ylabel('Residual Value')
 
 
 def plot_resid_vs_conc(df, ref_column):
@@ -480,7 +460,7 @@ def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, b
 
     for d in days:               
         #call the function that defines the training and holdout data
-        X_T, y_T, X_CV, y_CV = make_numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)  
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)  
         #fit the ridge regression for the lambda
         model.fit(X_T, y_T)
         if d == days[0]:
@@ -502,7 +482,7 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1)
         forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)
         #call the function that defines the trainig and holdout data
-        X_T, y_T, X_CV, y_CV = make_numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)                
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)                
         #fit a linear regression on the training data
         rfr.fit(X_T, y_T)  
         #fit the holdout data for the day
@@ -533,7 +513,7 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
                 rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1, max_features = i+1, max_depth = j+1)
                 forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)      
                 #call the function that defines the trainig and holdout data
-                X_T, y_T, X_CV, y_CV =  make_numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)   
+                X_T, y_T, X_CV, y_CV =  numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)   
                 #fit a linear regression on the training data
                 rfr.fit(X_T, y_T)  
                 #add the mse for each i and j to the 2D array (i is on one axis, j is on the other, and mse is a grid)
