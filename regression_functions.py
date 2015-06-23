@@ -95,7 +95,8 @@ def fit_holdout(model, X_T, y_T, X_H, y_H):
     model.fit(X_T, y_T)  
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
     diff_in_mean = (np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60]))/np.mean(y_H[y_H >= 60])*100
-    return np.mean((y_H - model.predict(X_H))**2), np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2), t_stat, p_value, round(diff_in_mean, 1)
+    return np.mean((y_H - model.predict(X_H))**2), np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2), 
+        t_stat, p_value, round(diff_in_mean, 1)
 
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
