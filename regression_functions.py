@@ -1,8 +1,3 @@
-
-# coding: utf-8
-
-# In[3]:
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
