@@ -351,9 +351,11 @@ def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric,lo
     X = df[features].values
     y = df[ref_column].values
     if scoring_metric == 'custom_mse':
-        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
+        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
+            scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
     elif scoring_metric == 'custom_mae':
-        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, scoring = make_scorer(custom_mae_scoring_function, greater_is_better = False)))        
+        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
+            scoring = make_scorer(custom_mae_scoring_function, greater_is_better = False)))        
     else:
         score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, scoring = scoring_metric))
     return score_cv
