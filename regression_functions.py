@@ -89,23 +89,55 @@ def fitting_func(model, X_T, y_T, X_CV, y_CV):
     #fit a linear regression on the training data
     model.fit(X_T, y_T)   
     #find the normalized MSE for the training and holdout data
-    return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV)
+    score_cv_day = np.mean((y_CV[y_CV >= 60] - model.predict(X_CV)[y_CV >= 60])**2)
+    return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV), score_cv_day
 
-def fit_holdout(model, X_T, y_T, X_H, y_H):
-    model.fit(X_T, y_T)  
+
+def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model):
+    df_H = df_H.copy()
+    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
+    model.fit(X_T, y_T)
+    df_H['O3_fit'] = model.predict(X_H)
+    df_H['ref_fit'] = y_H
+    #find the t_stat anf p_value
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
+    #find the difference in means between the high reference and predicted data
     diff_in_mean = (np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60]))/np.mean(y_H[y_H >= 60])*100
-    return np.mean((y_H - model.predict(X_H))**2), np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2), 
-        t_stat, p_value, round(diff_in_mean, 1)
+    MSE_H = np.mean((y_H - model.predict(X_H))**2)
+    MSE_H_high = np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2)
 
+    return df_H, MSE_H, MSE_H_high, t_stat, p_value, round(diff_in_mean, 1)
+
+
+def find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all):
+    df_cv = df_tr.copy()
+    df_cv['O3_fit'] = X_pred_cv_all
+    df_cv['ref_fit'] = y_CV_all
+    return df_cv
+
+def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H):
+    print "Training RMSE:", round(np.sqrt(train_MSE),1)
+    print (
+        "Cross-Validation RMSE: " + str(round(np.sqrt(CV_MSE))) + " , " +
+        "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " + 
+        "CV High Diff. in Mean.: " + str(round(diff_in_mean_cv,1)) + "%"
+        )
+
+    print (
+        "Holdout RMSE: " + str(round(np.sqrt(MSE_H))) +  " , " +  
+        "High-Value Holdout RMSE: " + str(round(np.sqrt(score_H))) + " , "
+        "Holdout High Diff. in Mean.: " + str(diff_in_mean_H) + "%"
+        )
+    
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
 def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol):
 
     #initialize the holdout and training MSE
-    day_date = []
-    MSE_CV = [] 
-    MSE_T = []
+    MSE_CV = np.zeros(len(chunk)) 
+    MSE_T = np.zeros(len(chunk)) 
+    score_cv_all = np.zeros(len(chunk))
+    count = 0
     y_CV_all = []
     X_pred_cv_all = []
     first = True
@@ -119,11 +151,12 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
             df_tr[df_tr.chunk == d], 
             ref_column
         )   
-        MSE_CV_day, MSE_T_day, X_pred_cv = fitting_func(model, X_T, y_T, X_CV, y_CV)
-         
+        MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV)
         #record the MSE for lambda for the day
-        MSE_CV.append(MSE_CV_day)
-        MSE_T.append(MSE_T_day)
+        MSE_CV[count] = MSE_CV_day
+        MSE_T[count] = MSE_T_day
+        if not np.isnan(score_cv_day):
+            score_cv_all[count] = score_cv_day
 
         if first:
             X_pred_cv_all = X_pred_cv
@@ -132,41 +165,24 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
         else:
             X_pred_cv_all = np.concatenate([X_pred_cv_all, X_pred_cv])
             y_CV_all = np.concatenate([y_CV_all, y_CV])
+        count += 1
 
-        #record the chunk
-        day_date.append(d)
-            
-        #find the mean MSE of all of the days for the given value of lambda
-        mean_CV_MSE_all_days = np.mean(MSE_CV)
-        mean_train_MSE_all_Days = np.mean(MSE_T)
-            
-    df_cv = df_tr.copy()
-    df_cv['O3_fit'] = X_pred_cv_all
-    df_cv['ref_fit'] = y_CV_all
+    #remove the zeros from the high-value score (the zeros are from data chunks where ozone conc. never passed the high limit)
+    score_cv_all =  filter(lambda a: a != 0, score_cv_all)    
+    score_cv = np.mean(score_cv_all)        
+    #find the mean MSE of all of the days for the given value of lambda
+    mean_CV_MSE_all_days = np.mean(MSE_CV)
+    mean_train_MSE_all_Days = np.mean(MSE_T)
+    #find the predicted values for the cross-validation data and put them in a dataframe
+    df_cv = find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all)
+    #find the predicted values for the holdout data and put them in a dataframe
+    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
 
-    df_H = df_H.copy()
-    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
-    model.fit(X_T, y_T)
-    df_H['O3_fit'] = model.predict(X_H)
-    df_H['ref_fit'] = y_H
-
-    diff_in_mean_cv = (np.mean(X_pred_cv_all[y_CV_all >= 60]) - 
-            np.mean(y_CV_all[y_CV_all >= 60])) /
-        np.mean(y_CV_all[y_CV_all >= 60]) * 100
-
-    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
-    MSE_H, score_H, t_stat, p_value, diff_in_mean_H = fit_holdout(model, X_T, y_T, X_H, y_H)
-    score_cv = -np.mean(
-        cross_val_score(model, X_T, y_T, cv = lol, 
-        scoring = make_scorer(custom_high_scoring_function, greater_is_better = False)
-            )
-        )
-        
-    print "Training RMSE:", round(np.sqrt(mean_train_MSE_all_Days),1)
-    print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", 
-        "High-Value CV RMSE:", round(np.sqrt(score_cv)), "CV High Diff. in Mean.:", round(diff_in_mean_cv,1), "%"
-    print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H)), 
-        "Holdout High Diff. in Mean.:", diff_in_mean_H, "%"
+    #find the percentage difference between the high reference and predicted values
+    diff_in_mean_cv = ((np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])) /
+        np.mean(y_CV_all[y_CV_all >= 60]) * 100)
+     
+    print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
     
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
@@ -188,8 +204,6 @@ def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
     else:
         df.O3_fit.plot(marker = '.',linestyle = ' ')
     plt.ylabel('Residual Value')
-
-
 
 def myround(x, base):
     return int(base * round(float(x)/base))
@@ -257,12 +271,6 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
     return plt
 
 
-
-
-
-
-
-
 #Define a function that assigns time chunks to each pod for plotting
 def assign_pod_calibration_times(pod_num, time_chunk):
     if time_chunk == 1:
@@ -296,10 +304,9 @@ def assign_pod_calibration_times(pod_num, time_chunk):
     return xlim
 
 
-
 def plot_resid_vs_conc(df, ref_column):
     #find the residuals
-    resid = df[ref_column] - df.O3_fit
+    resid = df.ref_fit - df.O3_fit
     #plot the residuals to check for non-linearity of response predictor
     plt.figure(figsize = (15,5))
     plt.plot(df.O3_fit, resid, linestyle = '',marker = '.',alpha = 0.4)
