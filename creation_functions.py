@@ -1,7 +1,4 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
+
 
 def find_lag_slope(df_P, int_min, data_col):
     df_P['diff'] = df_P[data_col].diff()
@@ -16,6 +13,13 @@ def find_lag_slope(df_P, int_min, data_col):
 
     return slope
 
+def make_func_caller_find_lag_slope(df_P, min_time, max_time, interval, column):
+    i = min_time
+    while i <= max_time:    
+        df_P[str(column) + '_slope' + '_lag_' + str(i)] = find_lag_slope(df_P, i, column)      
+        i += interval
+    return df_P 
+
 def find_lead_slope(df_P, int_min, data_col):
     df_P['diff'] = df_P[data_col].diff()
     slope = []
@@ -27,6 +31,13 @@ def find_lead_slope(df_P, int_min, data_col):
         slope.insert(i, 'NaN')
 
     return slope
+
+def make_func_caller_find_lead_slope(df_P, min_time, max_time, interval, column):
+    i = min_time
+    while i <= max_time:    
+        df_P[str(column) + '_slope' + '_lead_' + str(i)] = find_lead_slope(df_P, i, column)      
+        i += interval
+    return df_P
 
 def find_lag_integral(df_P, int_min, data_col):
     area_curve = []
@@ -104,19 +115,9 @@ def make_func_caller_sliding_integral_lead(df_P, min_start_min_after, max_start_
         i += frequency
     return df_P 
 
-def make_func_caller_find_lag_slope(df_P, min_time, max_time, interval, column):
-    i = min_time
-    while i <= max_time:    
-        df_P[str(column) + '_slope' + '_lag_' + str(i)] = find_lag_slope(df_P, i, column)      
-        i += interval
-    return df_P 
 
-def make_func_caller_find_lead_slope(df_P, min_time, max_time, interval, column):
-    i = min_time
-    while i <= max_time:    
-        df_P[str(column) + '_slope' + '_lead_' + str(i)] = find_lead_slope(df_P, i, column)      
-        i += interval
-    return df_P 
+
+ 
 
 def make_func_caller_find_sliding_slope(df_P, start_bef_or_aft_point, end_bef_or_aft_point, size, column):
     i = size

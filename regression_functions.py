@@ -167,7 +167,6 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
             X_pred_cv_all = np.concatenate([X_pred_cv_all, X_pred_cv])
             y_CV_all = np.concatenate([y_CV_all, y_CV])
         count += 1
-
     #remove the zeros from the high-value score (the zeros are from data chunks where ozone conc. never passed the high limit)
     score_cv_all =  filter(lambda a: a != 0, score_cv_all)    
     score_cv = np.mean(score_cv_all)        
@@ -184,6 +183,36 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
     #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
+
+
+def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_feat, Model, chunk, ref_column):
+    fitted_holdout_o3 = []
+    first = True
+    for d in chunk:    
+        #call the df_subset function to make numpy arrays out of the training and holdout data
+        X_T, y_T, X_CV, y_CV =  numpy_arrays_for_tr_and_cv(fs_features[:num_good_feat], 
+            df_T[df_T.chunk != d], df_T[df_T.chunk == d], ref_column) 
+        #fit a linear regression on the training data
+        model = Model
+        model.fit(X_T, y_T)
+        
+        if first:
+            fitted_CV_o3 = model.predict(X_CV)
+            y_CV_all = y_CV
+            first = False
+        else:
+            fitted_CV_o3 = np.concatenate((fitted_CV_o3, model.predict(X_CV)))
+            y_CV_all = np.concatenate([y_CV_all, y_CV])
+
+    df_cv = df_T.copy()
+    df_cv['O3_fit'] = fitted_CV_o3
+    df_cv['ref_fit'] = y_CV_all
+
+    df_H = df_H.copy()
+    X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(fs_features, df_H, df_T, ref_column)
+    model.fit(X_T, y_T)
+    df_H['O3_fit'] = model.predict(X_H)
+    return df_cv, df_H
 
 
 def fitted_vs_ref_plot(df, i, ref_column):
@@ -245,13 +274,10 @@ def plot_error_vs_features(score, MSE):
 def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
     plt.figure(facecolor='w', figsize = (5,5), frameon = "True")
     plt.title(title, size = 12)
-
     font = {'family' : 'normal',
         'weight' : 'normal',
         'size'   : '20'}
-
     plt.rc('font', **font)  # pass in the font dict as kwargs
-
     if ylimit is not None:
         plt.ylim(ylimit)
     plt.xlabel("Training Samples", size = 20)
@@ -263,14 +289,12 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
     valid_scores_mean = -np.mean(valid_scores, axis=1)
     valid_scores_std = np.std(valid_scores, axis=1)
     plt.grid(b=True, which='major', color='#696969', linestyle=':')
-
     plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, 
         alpha=0.1, color="r")
     plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, 
         alpha=0.1, color="g")
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
     plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
-
     leg = plt.legend(loc="best", prop={'size':20}, frameon = 'True')
     leg.get_frame().set_facecolor('w')
     #fig.savefig('learning_curve.png', bbox_inches= 'tight')
@@ -371,7 +395,6 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
     min_score = sys.maxint
     min_r2 = 0
     next_feature = ''
-
     for f in features:
         score_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, lol)
         if score_step < min_score:
@@ -384,25 +407,18 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
 def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol):
     #initialize the best_features list with the base features to force their inclusion
     best_features = ['days from start']
-    #call the function that scales the features and creates a day column   
-    
     score_cv = []
     MSE = []
-    while len(features) > 0 and len(best_features) < 61:
-        #next_features = []
-        #score_cv_list = []
-             
+    while len(features) > 0 and len(best_features) < 61:   
         next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
         MSE.append("{:.1f}".format(-np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
             cv = lol, scoring = 'mean_squared_error'))))
         score_cv.append(score_cv_feat)
-        print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat, ','
-        
+        print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat
         #remove the added feature from the list
-        features.remove(next_feature)
-        
+        features.remove(next_feature)    
     print "Best Features: ", best_features
     return best_features, score_cv, MSE
 
@@ -420,40 +436,49 @@ def plot_error_vs_features(score, MSE):
     print 'MSE: ', MSE
 
 
+def custom_ridge_mse_scoring_function(y, y_pred):
+    high_sum = np.mean((y[y >= 60] - y_pred[y >= 60])**2)
+    return int(high_sum)
+
+
+def avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_metric,lol):
+    X = df[features].values
+    y = df[ref_column].values
+    score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
+        scoring = make_scorer(custom_ridge_mse_scoring_function, greater_is_better = False)))        
+    return score_cv
+
 def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     lambda_ridge = []
     mean_score_lambda = []
     i = 0.000000001
     n = 1
     coefs = []
-
     while i < 10000000000:
         #define the model
         model = Model(alpha=i)    
         #fit the ridge regression for the lambda
         model.fit(X, y)
         #record the custom score for this lambda value
-        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, cv))  
+        mean_score_lambda.append(avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_metric, cv))  
         #record the lambda value for this run
         lambda_ridge.append(i)
         #record the coefficients for this lambda value
         coefs.append(model.coef_)
-        
         i = i * 1.25
         n += 1  
-
     #find the lambda value (that produces the lowest cross-validation MSE)  
     best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
     #record the MSE for this lambda value
     MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)   
     #plot the lambda vs coef weights                          
-    plot_lambda(lambda_ridge, coefs, lambda_ridge, mean_score_lambda)
+    plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model)
     
-    print 'Best Lambda:', best_lambda, 'Custom Error:', int(min(mean_score_lambda)), 'CV Mean Squared Error:', int(MSE)
+    print 'Best Lambda:', best_lambda, " , ", 'CV RMSE:', round(np.sqrt(MSE),1), " , " , 'High-Value RMSE:', round(np.sqrt(min(mean_score_lambda)),1) 
     return best_lambda, min(mean_score_lambda), MSE 
 
 
-def plot_lambda(lambda_ridge, coefs, lambda_ridge, mean_score_lambda):
+def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
     #plot the coefficients     
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
@@ -473,22 +498,25 @@ def plot_lambda(lambda_ridge, coefs, lambda_ridge, mean_score_lambda):
     plt.ylabel('Custom Score')
 
 
-def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, best_lambda):
+def find_residuals_and_fitted_cv_values(Model, df, features, chunk, ref_column, best_lambda):
     model = Model(alpha = best_lambda)
-
-    for d in days:               
+    first = True
+    for d in chunk:               
         #call the function that defines the training and holdout data
-        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)  
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.chunk != d], df[df.chunk == d], ref_column)  
         #fit the ridge regression for the lambda
         model.fit(X_T, y_T)
-        if d == days[0]:
+        if first:
             fitted_holdout_o3 = model.predict(X_CV)
+            y_CV_all = y_CV
+            first = False
         else:
             fitted_holdout_o3 = np.concatenate((fitted_holdout_o3, model.predict(X_CV)))
+            y_CV_all = np.concatenate((y_CV_all, y_CV))
                 
     df_ridge_fit = df.copy()
     df_ridge_fit['O3_fit'] = fitted_holdout_o3
-    print "Coefficients: ", model.coef_
+    df_ridge_fit['ref_fit'] = y_CV_all
     return df_ridge_fit
 
 
@@ -498,7 +526,7 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
     if options == 0:
         rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1)
         forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)
-        #call the function that defines the trainig and holdout data
+        #call the function that defines the training and holdout data
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)                
         #fit a linear regression on the training data
         rfr.fit(X_T, y_T)  
@@ -507,9 +535,6 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         df_CV_rf['O3_fit'] = rfr.predict(X_CV)
         #plot the feature importances
         plot_importance(rfr, forest, features)
-        #plot_ref_and_pod_ozone_for_each_day(df_fit[df_fit.day != d], df_fit[df_fit.day == d])
-        #plot_temp_and_rh_for_each_day(df_fit[df_fit.day != d], df_fit[df_fit.day == d])
-        #plot_fitted_and_ref_ozone_for_each_day(df_H['O3_fit'], df_fit[df_fit.day == d])
         MSE_CV = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
         print d,'Cross-Validatin MSE: ', MSE_CV
@@ -547,13 +572,11 @@ def plot_importance(rfr,forest, features):
     importances = rfr.feature_importances_
     std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
     print std
-    indices = np.argsort(importances)[::-1]
-    
+    indices = np.argsort(importances)[::-1] 
     # Print the feature ranking
     print("Feature ranking:")
     for f in range(10):
-        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]])),features[indices[f]]
-    
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]])),features[indices[f]]  
     #Plot the feature importances of the forest
     plt.figure(figsize=(15,5))
     plt.title("Feature importances")
@@ -585,7 +608,6 @@ def find_MSE_random_forest(df, features, days, options, ref_column):
         else:
             #MSE_CV.append(MSE_CV_day)
             MSE_CV = np.dstack((MSE_CV,MSE_CV_day))
-
         count +=1   
     if options == 0:
         return MSE_CV, df_rf
@@ -601,7 +623,6 @@ def plot_temp_and_rh_for_each_day(df_T, df_H):
     ax.set_xlabel('Time', fontsize = 18)
     ax.set_ylabel('Temperature (as % of maximum)', fontsize = 18)
     ax.legend()
-    
     ax2 = ax.twinx()  
     ax2.set_ylabel('Rel. Hum. (as % of maximum)', fontsize = 18)
     ax2.legend(loc = 0)
@@ -673,9 +694,7 @@ def find_daily_min_max(features, df_T, df_H,d):
 def plot_daily_mse_and_features_for_day(MSE_H, day_date,feat_to_compare, title, sec_axis_label):
     from matplotlib import rc
     rc('mathtext', default='regular')
-
     indices = day_date
-    
     #Plot the feature importances of the forest
     fig = plt.figure(figsize=(15,5))
     ax = fig.add_subplot(111)
