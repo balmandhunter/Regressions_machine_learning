@@ -50,6 +50,7 @@ def scale_features_and_create_day_column(df, ref_column):
     df_sc['chunk'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day) + " " + ("AM" if dt.hour < 12 else "PM"))
     return df_sc, features
 
+
 def sep_tr_and_holdout(df, ref_column):
     #find the unique values of the day + AM/PM column
     chunk_list = df.chunk.unique()
@@ -63,9 +64,11 @@ def sep_tr_and_holdout(df, ref_column):
     #df_hold = df_hold[:len(df_hold['day'])-90]
     return df_tr, df_hold, chunks_tr
 
+
 def create_custom_cv(df):
     labels = df['chunk'].values
     lol = cross_validation.LeaveOneLabelOut(labels)
+
 
 def numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
     X_T = df_T[features].values
@@ -74,12 +77,14 @@ def numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
     y_CV = df_CV[ref_column].values
     return X_T, y_T, X_CV, y_CV
 
+
 def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
     X_T = df_tr[features].values
     X_H = df_H[features].values
     y_T = df_tr[ref_column].values
     y_H = df_H[ref_column].values
     return X_H, y_H, X_T, y_T
+
 
 def fitting_func(model, X_T, y_T, X_CV, y_CV):    
     #fit a linear regression on the training data
@@ -111,6 +116,7 @@ def find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all):
     df_cv['ref_fit'] = y_CV_all
     return df_cv
 
+
 def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H):
     print "Training RMSE:", round(np.sqrt(train_MSE),1)
     print (
@@ -128,7 +134,6 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
 def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol):
-
     #initialize the holdout and training MSE
     MSE_CV = np.zeros(len(chunk)) 
     MSE_T = np.zeros(len(chunk)) 
@@ -173,14 +178,13 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
     df_cv = find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all)
     #find the predicted values for the holdout data and put them in a dataframe
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
-
     #find the percentage difference between the high reference and predicted values
     diff_in_mean_cv = ((np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])) /
         np.mean(y_CV_all[y_CV_all >= 60]) * 100)
-     
+    #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
-    
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
+
 
 def fitted_vs_ref_plot(df, i, ref_column):
     plt.figure(figsize = (5,5), facecolor='w')
@@ -190,6 +194,7 @@ def fitted_vs_ref_plot(df, i, ref_column):
     plt.plot([1, df.ref_fit.max()], [1,df.ref_fit.max()])
     if i != 0:
         plt.title('Number of features = ' + str(i))
+
 
 def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
     plt.figure(figsize = (15,10))
@@ -201,8 +206,10 @@ def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
         df.O3_fit.plot(marker = '.',linestyle = ' ')
     plt.ylabel('Residual Value')
 
+
 def myround(x, base):
     return int(base * round(float(x)/base))
+
 
 def plot_hist(values, other, title):
     h = sorted(values)  
@@ -221,6 +228,7 @@ def plot_hist(values, other, title):
 def custom_high_scoring_function(y, y_pred):
     high_sum = np.mean((y[y >= 50] - y_pred[y >= 50])**2)
     return high_sum
+
 
 def plot_error_vs_features(score, MSE):
     x = range(0, len(score))
@@ -333,6 +341,7 @@ def custom_mse_scoring_function(y, y_pred):
         high_sum = 0
     return int(low_sum + high_sum)
 
+
 def custom_mae_scoring_function(y, y_pred):
     low_sum = np.mean(0.1*np.absolute(y[y < 65] - y_pred[y < 65]))
     high_sum = np.mean(np.absolute(y[y >= 65] - y_pred[y >= 65]))
@@ -411,7 +420,6 @@ def plot_error_vs_features(score, MSE):
     print 'MSE: ', MSE
 
 
-
 def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     lambda_ridge = []
     mean_score_lambda = []
@@ -482,7 +490,6 @@ def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, b
     df_ridge_fit['O3_fit'] = fitted_holdout_o3
     print "Coefficients: ", model.coef_
     return df_ridge_fit
-
 
 
 #fit random forest and finds MSE
@@ -556,7 +563,6 @@ def plot_importance(rfr,forest, features):
     plt.xlim([-1, len(features)])
     plt.show()
     
-
 
 def find_MSE_random_forest(df, features, days, options, ref_column):
     MSE_CV = []
