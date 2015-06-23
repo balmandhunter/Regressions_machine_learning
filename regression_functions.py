@@ -163,8 +163,10 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
         )
         
     print "Training RMSE:", round(np.sqrt(mean_train_MSE_all_Days),1)
-    print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", "High-Value CV RMSE:", round(np.sqrt(score_cv)), "CV High Diff. in Mean.:", round(diff_in_mean_cv,1), "%"
-    print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H)), "Holdout High Diff. in Mean.:", diff_in_mean_H, "%"
+    print "Cross-Validation RMSE:", round(np.sqrt(mean_CV_MSE_all_days)), ",", 
+        "High-Value CV RMSE:", round(np.sqrt(score_cv)), "CV High Diff. in Mean.:", round(diff_in_mean_cv,1), "%"
+    print"Holdout RMSE:", round(np.sqrt(MSE_H)),  ",",  "High-Value Holdout RMSE:", round(np.sqrt(score_H)), 
+        "Holdout High Diff. in Mean.:", diff_in_mean_H, "%"
     
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
