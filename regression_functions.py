@@ -239,7 +239,6 @@ def plot_error_vs_features(score, MSE):
 
 
 def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
-
     plt.figure(facecolor='w', figsize = (5,5), frameon = "True")
     plt.title(title, size = 12)
 
@@ -253,15 +252,18 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
         plt.ylim(ylimit)
     plt.xlabel("Training Samples", size = 20)
     plt.ylabel("Mean Squared Error", size = 20)
-    train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, cv = cv, train_sizes = train_sizes, scoring = scoring)
+    train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, 
+        cv = cv, train_sizes = train_sizes, scoring = scoring)
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
     valid_scores_std = np.std(valid_scores, axis=1)
     plt.grid(b=True, which='major', color='#696969', linestyle=':')
 
-    plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, alpha=0.1, color="r")
-    plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, alpha=0.1, color="g")
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, 
+        alpha=0.1, color="r")
+    plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, 
+        alpha=0.1, color="g")
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
     plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
 
