@@ -390,7 +390,8 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol)
         next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
-        MSE.append("{:.1f}".format(-np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, cv = lol, scoring = 'mean_squared_error'))))
+        MSE.append("{:.1f}".format(-np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
+            cv = lol, scoring = 'mean_squared_error'))))
         score_cv.append(score_cv_feat)
         print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat, ','
         
@@ -523,7 +524,8 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
             j = j_min
             while j < j_max:
                 #Set up the random forest regression features
-                rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1, max_features = i+1, max_depth = j+1)
+                rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1, 
+                    max_features = i+1, max_depth = j+1)
                 forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)      
                 #call the function that defines the trainig and holdout data
                 X_T, y_T, X_CV, y_CV =  numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)   
@@ -661,7 +663,9 @@ def find_daily_min_max(features, df_T, df_H,d):
     X_H = df_H[features]
     y_T = df_T['O3_ppb']
     y_H = df_H['O3_ppb']
-    return y_H.max(), df_H['Temp'].max(), df_H['Rh'].max(), y_H.min(), df_H['Temp'].min(), df_H['Rh'].min(), y_H.mean(), df_H['Temp'].mean(), df_H['Rh'].mean(), y_H.std(), df_H['Temp'].std(), df_H['Rh'].std(), df_H['e2v03'].max(), df_H['e2v03'].min(), df_H['e2v03'].mean(), df_H['e2v03'].std()
+    return y_H.max(), df_H['Temp'].max(), df_H['Rh'].max(), y_H.min(), df_H['Temp'].min(), df_H['Rh'].min(), 
+    y_H.mean(), df_H['Temp'].mean(), df_H['Rh'].mean(), y_H.std(), df_H['Temp'].std(), df_H['Rh'].std(), 
+    df_H['e2v03'].max(), df_H['e2v03'].min(), df_H['e2v03'].mean(), df_H['e2v03'].std()
 
 
 def plot_daily_mse_and_features_for_day(MSE_H, day_date,feat_to_compare, title, sec_axis_label):
