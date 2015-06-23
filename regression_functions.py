@@ -44,21 +44,50 @@ def declare_filt_or_raw_dataset(which_data):
 
 def scale_features_and_create_day_column(df, ref_column):
     df_scaled = df.copy() 
-    features = list(df_scaled.ix[:,1:len(df.columns)])
+    #features = list(df_scaled.ix[:,0:len(df.columns)])
+    features = [x for x in list(df_scaled.ix[:,0:len(df.columns)]) if x != ref_column]
     #Center feature values around zero and make them all have variance on the same order.
     df_scaled = df_scaled[features].apply(lambda x: pp.scale(x))
     df_sc = pd.concat([df_scaled, df[ref_column]], axis = 1)  
     #add a 'day' column 
     df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
+
+    time_chunk = []
+    df_sc['hour'] = df_sc.index.map(lambda dt: dt.hour)
+    for i in range(0,len(df_sc['hour'])):
+        if df_sc.hour[i] < 12:
+            time_chunk.append(1)
+        else: 
+            time_chunk.append(2)
+        
+    df_sc['time_chunk'] = time_chunk
+
     return df_sc, features
 
 def sep_tr_and_holdout(df, ref_column):
     days = df['day'].unique()
-    num_days = np.argmax(days)
     days_tr = days[2:]
-    df_tr = df.loc[df['day'].isin(days_tr)]
+    count = 1
+    chunk_num = np.zeros(len(df['day']))
+    df['day_shift'] = df['day'].shift(-1)
+    df['time_chunk_shift'] = df['time_chunk'].shift(-1)
+    for i in range(0,len(df['e2v03'])):
+            if i == 0:
+                chunk_num[i] = 1
+            elif df['day'][i] == df['day_shift'][i] and df['time_chunk'][i] == df['time_chunk_shift'][i]:
+                chunk_num[i] = count
+            else:
+                count += 1
+                chunk_num[i] = count
+    df['chunk_num'] = chunk_num
+    chunk_list = np.arange(1,len(df['chunk_num'].unique())+1)
+    np.random.shuffle(chunk_list)
+    hold_chunks = chunk_list[0:4]
+
+
+    df_tr = df[~df[chunk_num].isin(hold_chunks)]
     df_hold = df.loc[df['day'].isin([days[0], days[1]])]
-    df_hold = df_hold[:len(df_hold['day'])-110]
+    df_hold = df_hold[:len(df_hold['day'])-90]
     return df_tr, df_hold, days_tr
 
 def create_custom_cv(df):
