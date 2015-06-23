@@ -14,15 +14,16 @@ import sys
 from scipy import stats
 
 import sklearn.ensemble as sk
-from sklearn.cross_validation import cross_val_score 
 from sklearn import linear_model
+from sklearn import metrics
+from sklearn import cross_validation
+from sklearn.cross_validation import cross_val_score 
+from sklearn.metrics import make_scorer
 from sklearn.cross_validation import KFold
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import Lasso
 from sklearn.decomposition import RandomizedPCA
 from sklearn.linear_model import Ridge
-from sklearn import metrics
-from sklearn import cross_validation
 from sklearn.datasets import load_digits
 from sklearn.learning_curve import learning_curve
 import sklearn.decomposition
@@ -327,7 +328,6 @@ def plot_resid_vs_time(resid, pod_num, time_chunk):
     plt.ylabel('Residuals')
 
 
-from sklearn.metrics import make_scorer
 def custom_mse_scoring_function(y, y_pred):
     low_sum = np.mean(0.1*(y[y < 60] - y_pred[y < 60])**2)
     high_sum = np.mean((y[y >= 60] - y_pred[y >= 60])**2)
@@ -419,7 +419,6 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     i = 0.000000001
     n = 1
     coefs = []
-  
 
     while i < 10000000000:
         #define the model
@@ -433,15 +432,21 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
         #record the coefficients for this lambda value
         coefs.append(model.coef_)
         
-        i = i*1.25
+        i = i * 1.25
         n += 1  
 
     #find the lambda value (that produces the lowest cross-validation MSE)  
-    best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]
-    
+    best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
     #record the MSE for this lambda value
-    MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)
-                                
+    MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)   
+    #plot the lambda vs coef weights                          
+    plot_lambda(lambda_ridge, coefs, lambda_ridge, mean_score_lambda)
+    
+    print 'Best Lambda:', best_lambda, 'Custom Error:', int(min(mean_score_lambda)), 'CV Mean Squared Error:', int(MSE)
+    return best_lambda, min(mean_score_lambda), MSE 
+
+
+def plot_lambda(lambda_ridge, coefs, lambda_ridge, mean_score_lambda):
     #plot the coefficients     
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
@@ -459,12 +464,6 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     ax.set_xscale('log')
     plt.xlabel('lambda')
     plt.ylabel('Custom Score')
-    
-    print 'Best Lambda: ', best_lambda
-    print 'Custom Error: ', int(min(mean_score_lambda))
-    print 'CV Mean Squared Error: ', int(MSE)
-    
-    return best_lambda, min(mean_score_lambda), MSE 
 
 
 def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, best_lambda):
@@ -682,29 +681,6 @@ def plot_daily_mse_and_features_for_day(MSE_H, day_date,feat_to_compare, title, 
     ax2.set_ylabel(sec_axis_label, fontsize = 18)
     plt.plot(range(len(day_date)), feat_to_compare, marker = 'o', linestyle = '--')
     plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
