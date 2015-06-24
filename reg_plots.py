@@ -27,8 +27,7 @@ def plot_hist(values, other, title):
     abs_min = myround(abs_min_dec, 5)
     abs_max = myround(abs_max_dec, 5)
     pl.hist(h, normed=True, bins=np.arange(abs_min-10,abs_max+10, 5))  
-        #use this to draw histogram of your data
-    axes.set_xlim([-40, 100])
+    axes.set_xlim([-40, 90])
     pl.show()  
 
 
@@ -48,7 +47,7 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
     valid_scores_mean = -np.mean(valid_scores, axis=1)
     valid_scores_std = np.std(valid_scores, axis=1)
 
-    plt.grid(b=True, which='major', color='#696969', linestyle=':')
+    #plt.grid(b=True, which='major', color='#696969', linestyle=':')
     plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, 
         alpha=0.1, color="r")
     plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, 
@@ -56,7 +55,7 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
     plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
 
-    leg = plt.legend(loc="best", prop={'size':14}, frameon = 'True')
+    leg = plt.legend(loc="best", fontsize = label_size, frameon = 'True')
     leg.get_frame().set_facecolor('w')
     #fig.savefig('learning_curve.png', bbox_inches= 'tight')
     return plt
@@ -66,8 +65,8 @@ def fitted_vs_ref_plot(df, i, ref_column):
     plt.figure(facecolor='w', figsize = (8,8))
     a, b, axes, label_size = plot_params()
     plt.plot(df.ref_fit, df.O3_fit, linestyle = '', marker = '.', alpha = 0.3)
-    plt.xlabel('Reference O3 Conc.', size = label_size)
-    plt.ylabel('Predicted O3 Conc (Cross-Validation)', size = label_size)
+    plt.xlabel('Reference Ozone Concentration (ppb)', size = label_size)
+    plt.ylabel('Predicted Cross-Val. Ozone Conc. (ppb)', size = label_size)
     plt.plot([1, df.ref_fit.max()], [1,df.ref_fit.max()])
     axes.set_ylim([-20,100])
     if i != 0:
@@ -109,16 +108,16 @@ def assign_pod_calibration_times(pod_num, time_chunk):
 def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
     plt.figure(facecolor='w', figsize = (15,10))
     a, b, axes, label_size = plot_params()
-    df.ref_fit.plot(marker = '.',linestyle = ' ')
+    df.ref_fit.plot(marker = '.',linestyle = '-', label = 'Reference Data')
     if time_chunk != 0:
         xlim = assign_pod_calibration_times(pod_num, time_chunk)
-        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
+        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim, label = 'Predicted Data')
     else:
-        df.O3_fit.plot(marker = '.',linestyle = ' ')
-    axes.set_ylim([-20,100])
+        df.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Predicted Data')
+    axes.set_ylim([-10,75])
     plt.legend(fontsize = label_size)
     plt.ylabel('Ozone Concentration (ppb)', size = label_size)
-    plt.xlabel('Time', size = label_size)
+    plt.xlabel('Date', size = label_size)
 
 
 def myround(x, base):
@@ -129,12 +128,12 @@ def plot_error_vs_features(score, MSE):
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
     x = range(0, len(score))
-    plt.plot(x, score, marker = '.', markersize = 20, label='Cust. Score')
+    plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, MSE, marker = '.', markersize = 20, label='MSE')
     axes.set_ylim([0,60])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
-    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    #plt.grid(b=True, which='major', color='g', linestyle='-.')
     plt.legend(fontsize = label_size)
     print 'Custom Score: ', score
     print 'MSE: ', MSE
