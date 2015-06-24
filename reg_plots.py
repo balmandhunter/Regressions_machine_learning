@@ -107,7 +107,7 @@ def assign_pod_calibration_times(pod_num, time_chunk):
 
 
 def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
-    plt.figure(facecolor='w', figsize = (15,5))
+    plt.figure(facecolor='w', figsize = (15,10))
     a, b, axes, label_size = plot_params()
     df.ref_fit.plot(marker = '.',linestyle = ' ')
     if time_chunk != 0:
@@ -167,7 +167,7 @@ def plot_resid_vs_time(resid, pod_num, time_chunk):
 
 def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
     #plot the coefficients
-    plt.figure(facecolor='w', figsize = (5,5))
+    plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
@@ -176,11 +176,11 @@ def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
     ax.set_xscale('log')
     plt.xlabel('lambda', size = label_size)
     plt.ylabel('weights', size = label_size)
-    plt.title(str(Model) + 'coefficients as a function of the regularization')
+    plt.title('coefficients as a function of the regularization', size = label_size)
     plt.show()  
    
     #plot the results
-    plt.figure(facecolor='w', figsize = (5,5))
+    plt.figure(facecolor='w', figsize = (10,5))
     plt.plot(lambda_ridge, mean_score_lambda)
     ax = plt.gca()
     ax.set_xscale('log')

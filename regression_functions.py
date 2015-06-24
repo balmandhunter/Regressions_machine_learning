@@ -309,10 +309,11 @@ def avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_met
 def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     lambda_ridge = []
     mean_score_lambda = []
-    i = 0.000000001
+    i = 0.000001
     n = 1
     coefs = []
-    while i < 10000000000:
+    while i < 10000:
+        print i
         #define the model
         model = Model(alpha=i)    
         #fit the ridge regression for the lambda
@@ -323,14 +324,14 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
         lambda_ridge.append(i)
         #record the coefficients for this lambda value
         coefs.append(model.coef_)
-        i = i * 1.25
+        i = i * 2
         n += 1  
     #find the lambda value (that produces the lowest cross-validation MSE)  
     best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
     #record the MSE for this lambda value
     MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)   
     
-    print 'Best Lambda:', best_lambda, " , ", 'CV RMSE:', round(np.sqrt(MSE),1), " , " , 'High-Value RMSE:', round(np.sqrt(min(mean_score_lambda)),1) 
+    print 'Best Lambda:', best_lambda, ",", 'CV RMSE:', round(np.sqrt(MSE),1), "," , 'High-Value RMSE:', round(np.sqrt(min(mean_score_lambda)),1) 
     return best_lambda, min(mean_score_lambda), MSE, lambda_ridge, coefs, mean_score_lambda, Model
 
 
@@ -404,16 +405,16 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         return mse_array_CV
 
 
-def find_MSE_random_forest(df, features, days, options, ref_column):
+def find_MSE_random_forest(df, features, chunk, options, ref_column):
     MSE_CV = []
     count = 1
     #Calculate the training and holdout RSS for each step.
     #take the mean MSE for all of the possible holdout days (giving cross-validation error)
-    for d in days:
+    for d in chunk:
         if options == 0:
-            MSE_CV_day, df_rf_CV = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
+            MSE_CV_day, df_rf_CV = fit_rfr_and_find_MSE(features, df[df.chunk != d], df[df.chunk == d], d, options, ref_column)
         else: 
-            MSE_CV_day = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
+            MSE_CV_day = fit_rfr_and_find_MSE(features, df[df.chunk != d], df[df.chunk == d], d, options, ref_column)
         
         if count == 1 and options == 0:
             df_rf = df_rf_CV
