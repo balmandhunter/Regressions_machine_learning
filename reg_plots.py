@@ -124,19 +124,19 @@ def myround(x, base):
     return int(base * round(float(x)/base))
 
 
-def plot_error_vs_features(score, MSE):
+def plot_error_vs_features(score, RMSE):
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
     x = range(0, len(score))
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
-    plt.plot(x, MSE, marker = '.', markersize = 20, label='MSE')
-    axes.set_ylim([0,60])
+    plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
+    axes.set_ylim([0,10])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')
     plt.legend(fontsize = label_size)
     print 'Custom Score: ', score
-    print 'MSE: ', MSE
+    print 'RMSE: ', RMSE
 
 
 def plot_resid_vs_conc(df, ref_column):

@@ -276,7 +276,7 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
         if score_step < min_score:
             min_score = score_step
             next_feature = f
-            score_cv = "{:.1f}".format(min_score)   
+            score_cv = "{:.1f}".format(np.sqrt(min_score))   
     return next_feature, score_cv
 
 
@@ -284,19 +284,21 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol,
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
-    MSE = []
+    RMSE = np.zeros(n_feat)
     while len(features) > 0 and len(best_features) < n_feat:   
         next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
-        MSE.append("{:.1f}".format(-np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
-            cv = lol, scoring = 'mean_squared_error'))))
+        MSE_chunk = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
+            cv = lol, scoring = 'mean_squared_error'))
+        RMSE_chunk = np.sqrt(MSE_chunk)
+        RMSE[len(best_features)-1] = RMSE_chunk
         score_cv.append(score_cv_feat)
         print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat
         #remove the added feature from the list
         features.remove(next_feature)    
     print "Best Features: ", best_features
-    return best_features, score_cv, MSE
+    return best_features, score_cv, round(RMSE, 1)
 
 
 def custom_ridge_mse_scoring_function(y, y_pred):
