@@ -4,95 +4,50 @@ import seaborn as sns
 import numpy as np
 import datetime as dt
 import pylab as pl
+from scipy import stats
+from sklearn.learning_curve import learning_curve
 
 
 def plot_params():
-    a = plt.rc('xtick', labelsize = 20)
-    b = plt.rc('ytick', labelsize = 20)
-    figsize = (5,5)
-    facecolor = 'w'
-    size = 20
-    return a, b, plt.gca(), figsize , facecolor, size
-
-
-def fitted_vs_ref_plot(df, i, ref_column):
-    a, b, axes, fig_size, face_color, label_size = plot_params()
-    plt.figure(fig_params)
-    plt.plot(df.ref_fit, df.O3_fit, linestyle = '', marker = '.', alpha = 0.3)
-    plt.xlabel('Reference O3 Conc.', size = 12)
-    plt.ylabel('Predicted O3 Conc (Cross-Validation)', size = 20)
-    plt.plot([1, df.ref_fit.max()], [1,df.ref_fit.max()])
-    axes.set_ylim([-20,100])
-    if i != 0:
-        plt.title('Number of features = ' + str(i))
-
-
-def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
-    a, b, axes, fig_params, label_size = plot_params()
-    plt.figure(fig_size = (5,5))
-    df.ref_fit.plot(marker = '.',linestyle = ' ')
-    if time_chunk != 0:
-        xlim = assign_pod_calibration_times(pod_num, time_chunk)
-        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
-    else:
-        df.O3_fit.plot(marker = '.',linestyle = ' ')
-    axes = plt.gca()
-    axes.set_ylim([-20,100])
-    plt.legend()
-    plt.ylabel('Ozone Concentration (ppb)')
+    size = 18
+    a = plt.rc('xtick', labelsize = size)
+    b = plt.rc('ytick', labelsize = size)
+    return a, b, plt.gca(), size
 
 
 def plot_hist(values, other, title):
+    plt.figure(figsize = (10,5))
+    a, b, axes, label_size = plot_params()
     h = sorted(values)  
-    plt.figure(figsize=(15,5))
     fit = stats.norm.pdf(h, np.mean(h), np.std(h))  #this is a fitting indeed
-    pl.title(title)
     pl.plot(h, fit, '-o')
+    plt.title(title, size = label_size)
     abs_min_dec = min(min(values), min(other))
     abs_max_dec = max(max(values), max(other))
     abs_min = myround(abs_min_dec, 5)
     abs_max = myround(abs_max_dec, 5)
     pl.hist(h, normed=True, bins=np.arange(abs_min-10,abs_max+10, 5))  
         #use this to draw histogram of your data
-    axes = plt.gca()
     axes.set_xlim([-40, 100])
     pl.show()  
 
 
-def plot_error_vs_features(score, MSE):
-    plt.rc('xtick', labelsize = 20) 
-    plt.rc('ytick', labelsize = 20) 
-    x = range(0, len(score))
-    plt.plot(x, score, marker = '.', markersize = 20, label='Cust. Score')
-    plt.plot(x, MSE, marker = '.', markersize = 20, label='MSE')
-    axes = plt.gca()
-    axes.set_ylim([0,60])
-    plt.xlabel('Number of Features', size = 20)
-    plt.ylabel('Error', size = 20)
-    plt.grid(b=True, which='major', color='g', linestyle='-.')
-    plt.legend(size = 14)
-
-    print 'Custom Score: ', score
-    print 'MSE: ', MSE
-
-
 def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
-    plt.figure(facecolor='w', figsize = (5,5), frameon = "True")
-    plt.title(title, size = 12)
-    plt.rc('xtick', labelsize = 20) 
-    plt.rc('ytick', labelsize = 20) 
-    plt.rc('font', **font)  # pass in the font dict as kwargs
+    plt.figure(facecolor='w', figsize = (8,8), frameon = "True")
+    a, b, axes, label_size = plot_params()
+    plt.title(title, size = label_size)
     if ylimit is not None:
-        axes = plt.gca()
         axes.set_ylim(ylimit)
-    plt.xlabel("Training Samples", size = 20)
-    plt.ylabel("Mean Squared Error", size = 20)
+    plt.xlabel("Training Samples", size = label_size)
+    plt.ylabel("Mean Squared Error", size = label_size)
+
     train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, 
         cv = cv, train_sizes = train_sizes, scoring = scoring)
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
     valid_scores_std = np.std(valid_scores, axis=1)
+
     plt.grid(b=True, which='major', color='#696969', linestyle=':')
     plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, 
         alpha=0.1, color="r")
@@ -100,54 +55,137 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
         alpha=0.1, color="g")
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
     plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
+
     leg = plt.legend(loc="best", prop={'size':14}, frameon = 'True')
     leg.get_frame().set_facecolor('w')
     #fig.savefig('learning_curve.png', bbox_inches= 'tight')
     return plt
 
 
+def fitted_vs_ref_plot(df, i, ref_column):
+    plt.figure(facecolor='w', figsize = (8,8))
+    a, b, axes, label_size = plot_params()
+    plt.plot(df.ref_fit, df.O3_fit, linestyle = '', marker = '.', alpha = 0.3)
+    plt.xlabel('Reference O3 Conc.', size = label_size)
+    plt.ylabel('Predicted O3 Conc (Cross-Validation)', size = label_size)
+    plt.plot([1, df.ref_fit.max()], [1,df.ref_fit.max()])
+    axes.set_ylim([-20,100])
+    if i != 0:
+        plt.title('Number of features = ' + str(i), size = label_size)
+
+
+#Define a function that assigns time chunks to each pod for plotting
+def assign_pod_calibration_times(pod_num, time_chunk):
+    if time_chunk == 1:
+        if pod_num == 'F3' or pod_num == 'F4' or pod_num == 'F5' or pod_num == 'F6'  or pod_num == 'F7' or pod_num == 'D0':
+            xlim = ['2014-07-11 00:00:00', '2014-07-13 00:00:00']
+        elif pod_num == 'D8' or pod_num == 'F8':
+            xlim = ['2014-07-11 00:00:00', '2014-7-12 00:00:00']
+        elif pod_num == 'D4' or pod_num == 'D6' or pod_num == 'D8' or pod_num == 'N4' or pod_num == 'N7' or pod_num == 'N8':
+            xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
+        elif pod_num == 'N3' or pod_num == 'N5' or pod_num == 'D3':
+            xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
+    else: 
+        if pod_num == 'D0' or pod_num == 'F8':
+            xlim = ['2014-08-30 00:00:00', '2014-09-4 00:00:00']
+        elif pod_num == 'D4' or pod_num == 'F4':
+            xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
+        elif pod_num == 'D0':
+            xlim = ['2014-08-29 00:00:00', '2014-09-400:00:00']
+        elif (pod_num == 'D3' or pod_num == 'D6' or pod_num == 'F3' or pod_num == 'D8' or pod_num == 'F5' or 
+            pod_num == 'F6' or pod_num == 'N8'):
+            xlim = ['2014-08-21 00:00:00', '2014-08-30 00:00:00']
+        elif pod_num == 'F7' or pod_num == 'N4':
+            xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
+        elif pod_num == 'N3':
+            xlim = ['2014-08-14 00:00:00', '2014-08-21 00:00:00']
+        elif pod_num == 'D4' or pod_num == 'N5':
+            xlim = ['2014-08-29 00:00:00', '2014-09-4 00:00:00']
+        elif pod_num == 'N7':
+            xlim = ['2014-08-16 00:00:00', '2014-08-22 00:00:00']
+    return xlim
+
+
+def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
+    plt.figure(facecolor='w', figsize = (15,5))
+    a, b, axes, label_size = plot_params()
+    df.ref_fit.plot(marker = '.',linestyle = ' ')
+    if time_chunk != 0:
+        xlim = assign_pod_calibration_times(pod_num, time_chunk)
+        df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim)
+    else:
+        df.O3_fit.plot(marker = '.',linestyle = ' ')
+    axes.set_ylim([-20,100])
+    plt.legend(fontsize = label_size)
+    plt.ylabel('Ozone Concentration (ppb)', size = label_size)
+    plt.xlabel('Time', size = label_size)
+
+
+def myround(x, base):
+    return int(base * round(float(x)/base))
+
+
+def plot_error_vs_features(score, MSE):
+    plt.figure(facecolor='w', figsize = (10,5))
+    a, b, axes, label_size = plot_params()
+    x = range(0, len(score))
+    plt.plot(x, score, marker = '.', markersize = 20, label='Cust. Score')
+    plt.plot(x, MSE, marker = '.', markersize = 20, label='MSE')
+    axes.set_ylim([0,60])
+    plt.xlabel('Number of Features', size = label_size)
+    plt.ylabel('Error', size = label_size)
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    plt.legend(fontsize = label_size)
+    print 'Custom Score: ', score
+    print 'MSE: ', MSE
+
+
 def plot_resid_vs_conc(df, ref_column):
     #find the residuals
     resid = df.ref_fit - df.O3_fit
     #plot the residuals to check for non-linearity of response predictor
-    plt.figure(figsize = (15,5))
+    plt.figure(facecolor='w', figsize = (15,5))
+    a, b, axes, label_size = plot_params()
     plt.plot(df.O3_fit, resid, linestyle = '',marker = '.',alpha = 0.4)
     plt.plot([-40,70],[0,0], linestyle = ' ', marker = '.')
-    axes = plt.gca()
     axes.set_ylim([-80,80])
     axes.set_xlim([-20,100])
-    plt.xlabel('Fitted O3 Conc.')
-    plt.ylabel('Residuals')
+    plt.xlabel('Predicted Ozone Concentration', size = label_size)
+    plt.ylabel('Residuals', size = label_size)
     return resid
 
 
 def plot_resid_vs_time(resid, pod_num, time_chunk):
-    plt.figure(figsize = (15,5))
+    plt.figure(facecolor='w', figsize = (15,5))
+    a, b, axes, label_size = plot_params()
     xlim = assign_pod_calibration_times(pod_num, time_chunk)
     resid.plot(linestyle = '',marker = '.', xlim = xlim)
     #plt.plot([0,0],[70,0])
-    plt.xlabel('Fitted O3 Conc.')
-    plt.ylabel('Residuals')
+    plt.xlabel('Fitted O3 Conc.', size = label_size)
+    plt.ylabel('Residuals', size = label_size)
 
 
 def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
-    #plot the coefficients     
+    #plot the coefficients
+    plt.figure(facecolor='w', figsize = (5,5))
+    a, b, axes, label_size = plot_params()
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
 
     ax.plot(lambda_ridge, coefs)
     ax.set_xscale('log')
-    plt.xlabel('lambda')
-    plt.ylabel('weights')
+    plt.xlabel('lambda', size = label_size)
+    plt.ylabel('weights', size = label_size)
     plt.title(str(Model) + 'coefficients as a function of the regularization')
     plt.show()  
    
     #plot the results
+    plt.figure(facecolor='w', figsize = (5,5))
     plt.plot(lambda_ridge, mean_score_lambda)
     ax = plt.gca()
     ax.set_xscale('log')
-    plt.xlabel('lambda')
-    plt.ylabel('Custom Score')
+    plt.xlabel('lambda', size= label_size)
+    plt.ylabel('Custom Score', size = label_size)
 
 
 def plot_importance(rfr,forest, features):

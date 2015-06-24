@@ -222,45 +222,9 @@ def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_fe
     return df_cv, df_H
 
 
-def myround(x, base):
-    return int(base * round(float(x)/base))
-
-
 def custom_high_scoring_function(y, y_pred):
     high_sum = np.mean((y[y >= 50] - y_pred[y >= 50])**2)
     return high_sum
-
-
-#Define a function that assigns time chunks to each pod for plotting
-def assign_pod_calibration_times(pod_num, time_chunk):
-    if time_chunk == 1:
-        if pod_num == 'F3' or pod_num == 'F4' or pod_num == 'F5' or pod_num == 'F6'  or pod_num == 'F7' or pod_num == 'D0':
-            xlim = ['2014-07-11 00:00:00', '2014-07-13 00:00:00']
-        elif pod_num == 'D8' or pod_num == 'F8':
-            xlim = ['2014-07-11 00:00:00', '2014-7-12 00:00:00']
-        elif pod_num == 'D4' or pod_num == 'D6' or pod_num == 'D8' or pod_num == 'N4' or pod_num == 'N7' or pod_num == 'N8':
-            xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
-        elif pod_num == 'N3' or pod_num == 'N5' or pod_num == 'D3':
-            xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
-    else: 
-        if pod_num == 'D0' or pod_num == 'F8':
-            xlim = ['2014-08-30 00:00:00', '2014-09-4 00:00:00']
-        elif pod_num == 'D4' or pod_num == 'F4':
-            xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
-        elif pod_num == 'D0':
-            xlim = ['2014-08-29 00:00:00', '2014-09-400:00:00']
-        elif (pod_num == 'D3' or pod_num == 'D6' or pod_num == 'F3' or pod_num == 'D8' or pod_num == 'F5' or 
-            pod_num == 'F6' or pod_num == 'N8'):
-            xlim = ['2014-08-21 00:00:00', '2014-08-30 00:00:00']
-        elif pod_num == 'F7' or pod_num == 'N4':
-            xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
-        elif pod_num == 'N3':
-            xlim = ['2014-08-14 00:00:00', '2014-08-21 00:00:00']
-        elif pod_num == 'D4' or pod_num == 'N5':
-            xlim = ['2014-08-29 00:00:00', '2014-09-4 00:00:00']
-        elif pod_num == 'N7':
-            xlim = ['2014-08-16 00:00:00', '2014-08-22 00:00:00']
-    return xlim
 
 
 def custom_mse_scoring_function(y, y_pred):
@@ -311,12 +275,12 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
     return next_feature, score_cv
 
 
-def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol):
+def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol, n_feat):
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
     MSE = []
-    while len(features) > 0 and len(best_features) < 20:   
+    while len(features) > 0 and len(best_features) < n_feat:   
         next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
@@ -365,11 +329,9 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
     #record the MSE for this lambda value
     MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)   
-    #plot the lambda vs coef weights                          
-    plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model)
     
     print 'Best Lambda:', best_lambda, " , ", 'CV RMSE:', round(np.sqrt(MSE),1), " , " , 'High-Value RMSE:', round(np.sqrt(min(mean_score_lambda)),1) 
-    return best_lambda, min(mean_score_lambda), MSE 
+    return best_lambda, min(mean_score_lambda), MSE, lambda_ridge, coefs, mean_score_lambda, Model
 
 
 def find_residuals_and_fitted_cv_values(Model, df, features, chunk, ref_column, best_lambda):
