@@ -67,9 +67,10 @@ def sep_tr_and_holdout(df, ref_column):
     hold_chunks = chunk_list[0:4]
     chunks_tr = chunk_list[4:]
     df_tr = df[~df.chunk.isin(hold_chunks)]
+    days_tr = df_tr['day'].unique()
     df_hold = df[df.chunk.isin(hold_chunks)]
     #df_hold = df_hold[:len(df_hold['day'])-90]
-    return df_tr, df_hold, chunks_tr
+    return df_tr, df_hold, chunks_tr, days_tr
 
 
 def create_custom_cv(df):
@@ -86,6 +87,7 @@ def numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
 
 
 def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
+    features = [f for f in features if f not in 'chunk']
     X_T = df_tr[features].values
     X_H = df_H[features].values
     y_T = df_tr[ref_column].values
@@ -143,7 +145,7 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
     
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
-def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol):
+def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column):
     #initialize the holdout and training MSE
     MSE_CV = np.zeros(len(chunk)) 
     MSE_T = np.zeros(len(chunk)) 
@@ -230,64 +232,75 @@ def custom_high_scoring_function(y, y_pred):
     return high_sum
 
 
-def custom_mse_scoring_function(y, y_pred):
-    low_MSE = np.mean( ((y - y_pred)[y < 60])**2 )
-    high_MSE = np.mean( ((y - y_pred)[y >= 60])**2 )
-    if np.isnan(low_MSE) == True:
-        low_MSE = 0
-    if np.isnan(high_MSE) == True:
-        high_MSE = 0
-    return (low_MSE + high_MSE)
-
-def diff_in_median_scoring_function(y, y_pred):
-    diff_in_median_cv = (np.median(y_pred[y >= 65]) - np.median(y[y >= 65])) 
-    return diff_in_median_cv
-
-
 def custom_mse(y, y_pred):
     return np.mean( (y - y_pred)**2 )
 
 
-def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, lol):
-    score_step_all = cross_val_score(model, df[features].values, df[ref_column].values, 
-        cv = lol, scoring = make_scorer(diff_in_median_scoring_function, greater_is_better = False))
-    print score_step_all
-    score_step = np.mean(score_step_all)  
-    return score_step
+def custom_mse_scoring_function(y, y_pred):
+    low_MSE = np.nan_to_num(np.mean( 0.1*((y - y_pred)[y < 60])**2 ))
+    high_MSE = np.nan_to_num( np.mean( ( (y - y_pred)[y >= 60] )**2 ) )
+    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= 60]) - np.median(y[y >= 60]))) 
+
+    return (np.sqrt((low_MSE + high_MSE))*2 + diff_in_median_cv)
 
 
-def high_cv_scoring_func_caller(df, features, ref_column, model, scoring_metric, lol):
-    score_cv = -np.mean(cross_val_score(model, df[features].values, df[ref_column].values, 
-        cv = lol, scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
+def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr):
+    first = True
+    custom_score = np.zeros(len(days_tr))
+    count = 0
+    for d in days_tr:  
+        #call the df_subset function to make numpy arrays out of the training and holdout data
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(
+            features, 
+            df[df.day != d], 
+            df[df.day == d], 
+            ref_column
+        )   
+        lin_regr = model.fit(X_T, y_T)        #record the MSE for lambda for the day
+        y_pred_day = lin_regr.predict(X_CV)
+        custom_score_day = custom_mse_scoring_function(y_CV, y_pred_day)
+
+        if first:
+            y_pred_all = y_pred_day
+            y_all = y_CV
+            first = False
+        else:
+            y_pred_all = np.concatenate([y_pred_all, y_pred_day])
+            y_all = np.concatenate([y_all, y_CV])
+        
+        custom_score[count] = custom_score_day
+        count += 1
+
+    #remove the zeros from the high-value score (the zeros are from days where ozone conc. never passed the high limit)
+    custom_score_all =  filter(lambda a: a != 0, custom_score)    
+    score_cv = round(np.mean(custom_score_all), 1)     
     return score_cv
 
 
-def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, lol):
+def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, days_tr):
     #initialize min_MSE with a very large number
     min_score = 100000000
     next_feature = ''
     for f in features:
-        score_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, lol)
-        score_custom_MSE_step = high_cv_scoring_func_caller(df, b_f + [f], ref_column, model, scoring_metric, lol)
-        MSE_step = -np.mean(cross_val_score(model, df[b_f + [f]].values, df[ref_column].values, 
-            cv = lol, scoring = 'mean_squared_error'))
-        if np.absolute(score_step)*2 +  np.sqrt(score_custom_MSE_step) < min_score:
-            min_score = np.absolute(score_step)*2 + np.sqrt(score_custom_MSE_step)
+        score_cv_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, days_tr)
+        if score_cv_step < min_score:
+            min_score = score_cv_step
             next_feature = f
             score_cv = round(min_score, 1)
-            MSE_feat = MSE_step 
-    return next_feature, score_cv, MSE_feat
+    return next_feature, score_cv
 
 
-def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol, n_feat):
+def forward_selection_lodo(model, features, features_it, df, scoring_metric, ref_column, days_tr, n_feat):
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
     RMSE = []
     while len(features) > 0 and len(best_features) < n_feat:   
-        next_feature, score_cv_feat, MSE_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
+        next_feature, score_cv_feat = forward_selection_step(model, best_features, features_it, df, ref_column, scoring_metric, days_tr)
         #add the next feature to the list
         best_features += [next_feature]
+        MSE_feat = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
+            cv = cross_validation.LeaveOneLabelOut(days_tr), scoring = 'mean_squared_error'))
         RMSE_features = round(np.sqrt(MSE_feat), 1)
         score_cv.append((score_cv_feat))
         RMSE.append(RMSE_features)
