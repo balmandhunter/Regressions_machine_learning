@@ -228,55 +228,40 @@ def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_fe
 
 
 def custom_high_scoring_function(y, y_pred):
-    high_sum = np.mean((y[y >= 50] - y_pred[y >= 50])**2)
+    high_sum = np.mean(((y - y_pred)[y >= 55])**2)
     return high_sum
 
 
 def custom_mse_scoring_function(y, y_pred):
-    low_sum = np.mean(0.1*(y[y < 55] - y_pred[y < 55])**2)
-    high_sum = np.mean((y[y >= 55] - y_pred[y >= 55])**2)
-    if np.isnan(low_sum) == True:
-        low_sum = 0
-    if np.isnan(high_sum) == True:
-        high_sum = 0
-    return int(low_sum + high_sum)
+    low_MSE = np.mean( ((y - y_pred)[y < 55])**2 )
+    high_MSE = np.mean( ((y - y_pred)[y >= 55])**2 )
+    if np.isnan(low_MSE) == True:
+        low_MSE = 0
+    if np.isnan(high_MSE) == True:
+        high_MSE = 0
+    return low_MSE + high_MSE
 
 
-def custom_mae_scoring_function(y, y_pred):
-    low_sum = np.mean(0.1 * np.absolute(y[y < 55] - y_pred[y < 55]))
-    high_sum = np.mean(np.absolute(y[y >= 55] - y_pred[y >= 55]))
-    if np.isnan(low_sum) == True:
-        low_sum = 0
-    if np.isnan(high_sum) == True:
-        high_sum = 0
-    return int(low_sum + high_sum)
+def custom_mse(y, y_pred):
+    return np.mean( (y - y_pred)**2 )
+    
 
-
-def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric,lol):
-    X = df[features].values
-    y = df[ref_column].values
-    if scoring_metric == 'custom_mse':
-        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
-            scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
-    elif scoring_metric == 'custom_mae':
-        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
-            scoring = make_scorer(custom_mae_scoring_function, greater_is_better = False)))        
-    else:
-        score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, scoring = scoring_metric))
+def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, lol):
+    score_cv = -np.mean(cross_val_score(model, df[features].values, df[ref_column].values, 
+        cv = lol, scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
     return score_cv
 
 
 def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, lol):
     #initialize min_MSE with a very large number
     min_score = sys.maxint
-    min_r2 = 0
     next_feature = ''
     for f in features:
         score_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, lol)
         if score_step < min_score:
             min_score = score_step
             next_feature = f
-            score_cv = "{:.1f}".format(np.sqrt(min_score))   
+            score_cv = min_score
     return next_feature, score_cv
 
 
@@ -284,21 +269,22 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol,
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
-    RMSE = np.zeros(n_feat)
+    RMSE = []
     while len(features) > 0 and len(best_features) < n_feat:   
         next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
-        MSE_chunk = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
-            cv = lol, scoring = 'mean_squared_error'))
-        RMSE_chunk = np.sqrt(MSE_chunk)
-        RMSE[len(best_features)-1] = RMSE_chunk
-        score_cv.append(score_cv_feat)
-        print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat
+        MSE_features = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
+            cv = lol, scoring = make_scorer(custom_mse, greater_is_better = False)))
+        RMSE_features = round(np.sqrt(MSE_features), 1)
+        r_score_cv_feat = round(np.sqrt(score_cv_feat), 1)
+        RMSE.append(RMSE_features)
+        score_cv.append(r_score_cv_feat)
+        print 'Next best Feature: ', next_feature, ',', 'Score: ', r_score_cv_feat, 'RMSE: ', RMSE_features
         #remove the added feature from the list
         features.remove(next_feature)    
     print "Best Features: ", best_features
-    return best_features, score_cv, round(RMSE, 1)
+    return best_features, score_cv, RMSE
 
 
 def custom_ridge_mse_scoring_function(y, y_pred):

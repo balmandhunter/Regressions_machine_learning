@@ -6,6 +6,8 @@ import datetime as dt
 import pylab as pl
 from scipy import stats
 from sklearn.learning_curve import learning_curve
+from sklearn.metrics import make_scorer
+
 
 
 def plot_params():
@@ -31,17 +33,20 @@ def plot_hist(values, other, title):
     pl.show()  
 
 
-def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring):
+def rmse_scoring_function(y, y_pred):
+    return np.sqrt(np.mean((y - y_pred)**2))
+
+
+def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes):
     plt.figure(facecolor='w', figsize = (8,8), frameon = "True")
     a, b, axes, label_size = plot_params()
     plt.title(title, size = label_size)
     if ylimit is not None:
         axes.set_ylim(ylimit)
     plt.xlabel("Training Samples", size = label_size)
-    plt.ylabel("Mean Squared Error", size = label_size)
-
+    plt.ylabel("Root Mean Squared Error", size = label_size)
     train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, 
-        cv = cv, train_sizes = train_sizes, scoring = scoring)
+        cv = lol,train_sizes = train_sizes, scoring = make_scorer(rmse_scoring_function, greater_is_better = False))
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
@@ -52,8 +57,8 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes, scoring
         alpha=0.1, color="r")
     plt.fill_between(train_sizes, valid_scores_mean - valid_scores_std, valid_scores_mean + valid_scores_std, 
         alpha=0.1, color="g")
-    plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training error")
-    plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation error")
+    plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training RMSE")
+    plt.plot(train_sizes, valid_scores_mean, 'o-', color="g", label="Cross-validation RMSE")
 
     leg = plt.legend(loc="best", fontsize = label_size, frameon = 'True')
     leg.get_frame().set_facecolor('w')
@@ -127,10 +132,10 @@ def myround(x, base):
 def plot_error_vs_features(score, RMSE):
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
-    x = range(0, len(score))
+    x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
-    axes.set_ylim([0,10])
+    axes.set_ylim([0,12])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')
