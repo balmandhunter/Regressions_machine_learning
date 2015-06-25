@@ -46,7 +46,7 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes):
     plt.xlabel("Training Samples", size = label_size)
     plt.ylabel("Root Mean Squared Error", size = label_size)
     train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, 
-        cv = lol,train_sizes = train_sizes, scoring = make_scorer(rmse_scoring_function, greater_is_better = False))
+        cv = cv, train_sizes = train_sizes, scoring = make_scorer(rmse_scoring_function, greater_is_better = False))
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
@@ -135,13 +135,11 @@ def plot_error_vs_features(score, RMSE):
     x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
-    axes.set_ylim([0,12])
+    axes.set_ylim([0,30])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')
     plt.legend(fontsize = label_size)
-    print 'Custom Score: ', score
-    print 'RMSE: ', RMSE
 
 
 def plot_resid_vs_conc(df, ref_column):

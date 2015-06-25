@@ -73,7 +73,7 @@ def sep_tr_and_holdout(df, ref_column):
 
 
 def create_custom_cv(df):
-    labels = df['chunk'].values
+    labels = df['chunk'].unique()
     lol = cross_validation.LeaveOneLabelOut(labels)
 
 
@@ -110,7 +110,7 @@ def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model):
     #find the t_stat anf p_value
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
     #find the difference in means between the high reference and predicted data
-    diff_in_mean = (np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60]))/np.mean(y_H[y_H >= 60])*100
+    diff_in_mean = np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60])
     MSE_H = np.mean((y_H - model.predict(X_H))**2)
     MSE_H_high = np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2)
 
@@ -131,14 +131,14 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
         "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " 
         )
     print (
-        "CV High Diff. in Mean (>60): " + str(round(diff_in_mean_cv, 1)) + "%" + " , " +
-        "CV High Diff. in Mean (>70): " + str(round(diff_in_mean_cv_highest, 1)) + "%"
+        "CV High Diff. in Mean (>60): " + str(round(diff_in_mean_cv, 1)) + " , " +
+        "CV High Diff. in Mean (>70): " + str(round(diff_in_mean_cv_highest, 1)) 
         )
 
     print (
         "Holdout RMSE: " + str(round(np.sqrt(MSE_H))) +  " , " +  
         "High-Value Holdout RMSE: " + str(round(np.sqrt(score_H))) + " , "
-        "Holdout High Diff. in Mean.: " + str(diff_in_mean_H) + "%"
+        "Holdout High Diff. in Mean.: " + str(diff_in_mean_H) 
         )
     
 
@@ -188,10 +188,8 @@ def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column, lol
     #find the predicted values for the holdout data and put them in a dataframe
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
     #find the percentage difference between the high reference and predicted values
-    diff_in_mean_cv = ((np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])) /
-        np.mean(y_CV_all[y_CV_all >= 60]) * 100)
-    diff_in_mean_cv_highest = ((np.mean(X_pred_cv_all[y_CV_all >= 70]) - np.mean(y_CV_all[y_CV_all >= 70])) /
-        np.mean(y_CV_all[y_CV_all >= 70]) * 100)
+    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])
+    diff_in_mean_cv_highest = np.mean(X_pred_cv_all[y_CV_all >= 70]) - np.mean(y_CV_all[y_CV_all >= 70])
     #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, diff_in_mean_cv_highest) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
@@ -228,25 +226,37 @@ def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_fe
 
 
 def custom_high_scoring_function(y, y_pred):
-    high_sum = np.mean(((y - y_pred)[y >= 55])**2)
+    high_sum = np.mean(((y - y_pred)[y >= 65])**2)
     return high_sum
 
 
 def custom_mse_scoring_function(y, y_pred):
-    low_MSE = np.mean( ((y - y_pred)[y < 55])**2 )
-    high_MSE = np.mean( ((y - y_pred)[y >= 55])**2 )
+    low_MSE = np.mean( ((y - y_pred)[y < 60])**2 )
+    high_MSE = np.mean( ((y - y_pred)[y >= 60])**2 )
     if np.isnan(low_MSE) == True:
         low_MSE = 0
     if np.isnan(high_MSE) == True:
         high_MSE = 0
-    return low_MSE + high_MSE
+    return (low_MSE + high_MSE)
+
+def diff_in_median_scoring_function(y, y_pred):
+    diff_in_median_cv = (np.median(y_pred[y >= 65]) - np.median(y[y >= 65])) 
+    return diff_in_median_cv
 
 
 def custom_mse(y, y_pred):
     return np.mean( (y - y_pred)**2 )
-    
+
 
 def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, lol):
+    score_step_all = cross_val_score(model, df[features].values, df[ref_column].values, 
+        cv = lol, scoring = make_scorer(diff_in_median_scoring_function, greater_is_better = False))
+    print score_step_all
+    score_step = np.mean(score_step_all)  
+    return score_step
+
+
+def high_cv_scoring_func_caller(df, features, ref_column, model, scoring_metric, lol):
     score_cv = -np.mean(cross_val_score(model, df[features].values, df[ref_column].values, 
         cv = lol, scoring = make_scorer(custom_mse_scoring_function, greater_is_better = False)))        
     return score_cv
@@ -254,15 +264,19 @@ def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, l
 
 def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, lol):
     #initialize min_MSE with a very large number
-    min_score = sys.maxint
+    min_score = 100000000
     next_feature = ''
     for f in features:
         score_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, lol)
-        if score_step < min_score:
-            min_score = score_step
+        score_custom_MSE_step = high_cv_scoring_func_caller(df, b_f + [f], ref_column, model, scoring_metric, lol)
+        MSE_step = -np.mean(cross_val_score(model, df[b_f + [f]].values, df[ref_column].values, 
+            cv = lol, scoring = 'mean_squared_error'))
+        if np.absolute(score_step)*2 +  np.sqrt(score_custom_MSE_step) < min_score:
+            min_score = np.absolute(score_step)*2 + np.sqrt(score_custom_MSE_step)
             next_feature = f
-            score_cv = min_score
-    return next_feature, score_cv
+            score_cv = round(min_score, 1)
+            MSE_feat = MSE_step 
+    return next_feature, score_cv, MSE_feat
 
 
 def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol, n_feat):
@@ -271,16 +285,13 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, lol,
     score_cv = []
     RMSE = []
     while len(features) > 0 and len(best_features) < n_feat:   
-        next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
+        next_feature, score_cv_feat, MSE_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, lol)
         #add the next feature to the list
         best_features += [next_feature]
-        MSE_features = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
-            cv = lol, scoring = make_scorer(custom_mse, greater_is_better = False)))
-        RMSE_features = round(np.sqrt(MSE_features), 1)
-        r_score_cv_feat = round(np.sqrt(score_cv_feat), 1)
+        RMSE_features = round(np.sqrt(MSE_feat), 1)
+        score_cv.append((score_cv_feat))
         RMSE.append(RMSE_features)
-        score_cv.append(r_score_cv_feat)
-        print 'Next best Feature: ', next_feature, ',', 'Score: ', r_score_cv_feat, 'RMSE: ', RMSE_features
+        print 'Next best Feature: ', next_feature, ',', 'Score: ', score_cv_feat, 'RMSE: ', RMSE_features, "#:", len(best_features)
         #remove the added feature from the list
         features.remove(next_feature)    
     print "Best Features: ", best_features
