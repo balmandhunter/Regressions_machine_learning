@@ -7,7 +7,7 @@ import pylab as pl
 from scipy import stats
 from sklearn.learning_curve import learning_curve
 from sklearn.metrics import make_scorer
-
+from sklearn import cross_validation
 
 
 def plot_params():
@@ -37,7 +37,7 @@ def rmse_scoring_function(y, y_pred):
     return np.sqrt(np.mean((y - y_pred)**2))
 
 
-def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes):
+def plot_learning_curve(estimator, title, X, y, ylimit, days_tr, train_sizes):
     plt.figure(facecolor='w', figsize = (8,8), frameon = "True")
     a, b, axes, label_size = plot_params()
     plt.title(title, size = label_size)
@@ -46,7 +46,7 @@ def plot_learning_curve(estimator, title, X, y, ylimit, cv, train_sizes):
     plt.xlabel("Training Samples", size = label_size)
     plt.ylabel("Root Mean Squared Error", size = label_size)
     train_sizes, train_scores, valid_scores = learning_curve(estimator, X, y, 
-        cv = cv, train_sizes = train_sizes, scoring = make_scorer(rmse_scoring_function, greater_is_better = False))
+        cv = 5, train_sizes = train_sizes, scoring = make_scorer(rmse_scoring_function, greater_is_better = False))
     train_scores_mean = -np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     valid_scores_mean = -np.mean(valid_scores, axis=1)
@@ -135,7 +135,7 @@ def plot_error_vs_features(score, RMSE):
     x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
-    axes.set_ylim([0,30])
+    axes.set_ylim([0,12])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')

@@ -145,23 +145,23 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
     
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
-def cross_validation_by_day(model, features, df_tr, df_H, chunk, ref_column):
+def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
     #initialize the holdout and training MSE
-    MSE_CV = np.zeros(len(chunk)) 
-    MSE_T = np.zeros(len(chunk)) 
-    score_cv_all = np.zeros(len(chunk))
+    MSE_CV = np.zeros(len(days)) 
+    MSE_T = np.zeros(len(days)) 
+    score_cv_all = np.zeros(len(days))
     count = 0
     y_CV_all = []
     X_pred_cv_all = []
     first = True
     #Calculate the training and holdout RSS for each step.
     #take the mean MSE for all of the possible holdout days (giving cross-validation error)
-    for d in chunk:   
+    for d in days:   
         #call the df_subset function to make numpy arrays out of the training and holdout data
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(
             features, 
-            df_tr[df_tr.chunk != d], 
-            df_tr[df_tr.chunk == d], 
+            df_tr[df_tr.day != d], 
+            df_tr[df_tr.day == d], 
             ref_column
         )   
         MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV)
@@ -259,15 +259,6 @@ def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, d
         lin_regr = model.fit(X_T, y_T)        #record the MSE for lambda for the day
         y_pred_day = lin_regr.predict(X_CV)
         custom_score_day = custom_mse_scoring_function(y_CV, y_pred_day)
-
-        if first:
-            y_pred_all = y_pred_day
-            y_all = y_CV
-            first = False
-        else:
-            y_pred_all = np.concatenate([y_pred_all, y_pred_day])
-            y_all = np.concatenate([y_all, y_CV])
-        
         custom_score[count] = custom_score_day
         count += 1
 
