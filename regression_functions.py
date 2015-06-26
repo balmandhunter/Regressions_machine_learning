@@ -85,6 +85,29 @@ def numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column):
     y_CV = df_CV[ref_column].values
     return X_T, y_T, X_CV, y_CV
 
+def daily_numpy_arrays_for_tr_and_cv(features, df_tr, ref_column, days_tr):
+    first = True
+    for d in days_tr:
+        df_T = df_tr[df_tr['day'] != d]
+        df_T = df_tr[df_tr['day'] == d]
+        features = [f for f in features if f not in 'leave_out']
+        X_T = df_tr[features].values
+        X_CV = df_tr[features].values
+        y_T = df_tr[ref_column].values
+        y_CV = df_tr[ref_column].values
+        if first:
+            X_T_matrix = [X_T]
+            X_CV_matrix = [X_CV]
+            y_T_matrix = [y_T]
+            y_CV_matrix = [y_CV]
+            first = False
+        else:
+            X_T_matrix.append(X_T)
+            X_CV_matrix.append(X_CV)
+            y_T_matrix.append(y_T)
+            y_CV_matrix.append(y_CV)
+    return X_T_matrix, X_CV_matrix, y_T_matrix, y_CV_matrix
+
 
 def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
     features = [f for f in features if f not in 'chunk']
@@ -250,13 +273,8 @@ def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, d
     count = 0
     for d in days_tr:  
         #call the df_subset function to make numpy arrays out of the training and holdout data
-        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(
-            features, 
-            df[df.day != d], 
-            df[df.day == d], 
-            ref_column
-        )   
-        lin_regr = model.fit(X_T, y_T)        #record the MSE for lambda for the day
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
+        lin_regr = model.fit(X_T, y_T)        
         y_pred_day = lin_regr.predict(X_CV)
         custom_score_day = custom_mse_scoring_function(y_CV, y_pred_day)
         custom_score[count] = custom_score_day
@@ -281,13 +299,13 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
     return next_feature, score_cv
 
 
-def forward_selection_lodo(model, features, features_it, df, scoring_metric, ref_column, days_tr, n_feat):
+def forward_selection_lodo(model, features, df, scoring_metric, ref_column, days_tr, n_feat):
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
     RMSE = []
     while len(features) > 0 and len(best_features) < n_feat:   
-        next_feature, score_cv_feat = forward_selection_step(model, best_features, features_it, df, ref_column, scoring_metric, days_tr)
+        next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, days_tr)
         #add the next feature to the list
         best_features += [next_feature]
         MSE_feat = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
@@ -302,19 +320,15 @@ def forward_selection_lodo(model, features, features_it, df, scoring_metric, ref
     return best_features, score_cv, RMSE
 
 
-def custom_ridge_mse_scoring_function(y, y_pred):
-    high_sum = np.mean((y[y >= 60] - y_pred[y >= 60])**2)
-    return int(high_sum)
-
-
-def avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_metric,lol):
+def avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_metric, cv):
     X = df[features].values
     y = df[ref_column].values
-    score_cv = -np.mean(cross_val_score(model, X, y, cv = lol, 
-        scoring = make_scorer(custom_ridge_mse_scoring_function, greater_is_better = False)))        
+    score_cv = -np.mean(cross_val_score(model, X, y, cv = cv, 
+        scoring = make_scorer(scoring_metric, greater_is_better = False)))        
     return score_cv
 
-def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
+
+def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X, y):
     lambda_ridge = []
     mean_score_lambda = []
     i = 0.000001
@@ -327,7 +341,7 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
         #fit the ridge regression for the lambda
         model.fit(X, y)
         #record the custom score for this lambda value
-        mean_score_lambda.append(avg_cv_score_for_all_days_ridge(df, features, ref_column, model, scoring_metric, cv))  
+        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr))  
         #record the lambda value for this run
         lambda_ridge.append(i)
         #record the coefficients for this lambda value
@@ -337,7 +351,7 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, cv, X, y):
     #find the lambda value (that produces the lowest cross-validation MSE)  
     best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
     #record the MSE for this lambda value
-    MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', cv)   
+    MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', days_tr)   
     
     print 'Best Lambda:', best_lambda, ",", 'CV RMSE:', round(np.sqrt(MSE),1), "," , 'High-Value RMSE:', round(np.sqrt(min(mean_score_lambda)),1) 
     return best_lambda, min(mean_score_lambda), MSE, lambda_ridge, coefs, mean_score_lambda, Model

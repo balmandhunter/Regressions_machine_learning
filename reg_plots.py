@@ -17,6 +17,20 @@ def plot_params():
     return a, b, plt.gca(), size
 
 
+def plot_tr_and_holdout(df, pod_num, time_chunk, ref_column):
+    plt.figure(facecolor='w', figsize = (15,10))
+    a, b, axes, label_size = plot_params()
+    df[ref_column].plot(marker = '.',linestyle = ' ', label = 'Reference Data')
+    if time_chunk != 0:
+        xlim = assign_pod_calibration_times(pod_num, time_chunk)
+        axes.set_xlim(xlim)
+    axes.set_ylim([-10,90])
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    plt.legend(fontsize = label_size)
+    plt.ylabel('Ozone Concentration (ppb)', size = label_size)
+    plt.xlabel('Date', size = label_size)
+
+
 def plot_hist(values, other, title):
     plt.figure(figsize = (10,5))
     a, b, axes, label_size = plot_params()
@@ -89,14 +103,14 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
         elif pod_num == 'N3' or pod_num == 'N5' or pod_num == 'D3':
             xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
-    else: 
+    elif time_chunk == 2: 
         if pod_num == 'D0' or pod_num == 'F8':
             xlim = ['2014-08-30 00:00:00', '2014-09-4 00:00:00']
         elif pod_num == 'D4' or pod_num == 'F4':
             xlim = ['2014-08-15 00:00:00', '2014-08-21 00:00:00']
         elif pod_num == 'D0':
             xlim = ['2014-08-29 00:00:00', '2014-09-400:00:00']
-        elif (pod_num == 'D3' or pod_num == 'D6' or pod_num == 'F3' or pod_num == 'D8' or pod_num == 'F5' or 
+        elif (pod_num == 'D6' or pod_num == 'F3' or pod_num == 'D8' or pod_num == 'F5' or 
             pod_num == 'F6' or pod_num == 'N8'):
             xlim = ['2014-08-21 00:00:00', '2014-08-30 00:00:00']
         elif pod_num == 'F7' or pod_num == 'N4':
@@ -107,19 +121,25 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-08-29 00:00:00', '2014-09-4 00:00:00']
         elif pod_num == 'N7':
             xlim = ['2014-08-16 00:00:00', '2014-08-22 00:00:00']
+        elif pod_num == 'D3':
+            xlim = ['2014-08-21 00:00:00', '2014-08-25 00:00:00']
+    else:
+        if pod_num == 'D3':
+            xlim = ['2014-08-26 00:00:00', '2014-08-30 00:00:00']
+
     return xlim
 
 
 def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
     plt.figure(facecolor='w', figsize = (15,10))
     a, b, axes, label_size = plot_params()
-    df.ref_fit.plot(marker = '.',linestyle = '-', label = 'Reference Data')
+    df.ref_fit.plot(marker = '.',linestyle = ' ', label = 'Reference Data')
     if time_chunk != 0:
         xlim = assign_pod_calibration_times(pod_num, time_chunk)
         df.O3_fit.plot(marker = '.',linestyle = ' ', xlim = xlim, label = 'Predicted Data')
     else:
         df.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Predicted Data')
-    axes.set_ylim([-10,75])
+    axes.set_ylim([-10,90])
     plt.legend(fontsize = label_size)
     plt.ylabel('Ozone Concentration (ppb)', size = label_size)
     plt.xlabel('Date', size = label_size)
@@ -135,11 +155,11 @@ def plot_error_vs_features(score, RMSE):
     x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
-    axes.set_ylim([0,12])
+    axes.set_ylim([0,22])
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')
-    plt.legend(fontsize = label_size)
+    plt.legend(fontsize = label_size, loc = "best")
 
 
 def plot_resid_vs_conc(df, ref_column):
@@ -171,6 +191,7 @@ def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
     #plot the coefficients
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
+    axes.set_ylim(-10, 10)
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
 
