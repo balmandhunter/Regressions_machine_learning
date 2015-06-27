@@ -347,9 +347,11 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X
         #record the coefficients for this lambda value
         coefs.append(model.coef_)
         i = i * 2
-        n += 1  
+        n += 1 
+
     #find the lambda value (that produces the lowest cross-validation MSE)  
-    best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))]   
+    best_lambda = lambda_ridge[mean_score_lambda.index(min(mean_score_lambda))] 
+    model = Model(alpha = best_lambda)   
     #record the MSE for this lambda value
     MSE = avg_cv_score_for_all_days(df, features, ref_column, Model(alpha=best_lambda), 'mean_squared_error', days_tr)   
     
@@ -357,12 +359,12 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X
     return best_lambda, min(mean_score_lambda), MSE, lambda_ridge, coefs, mean_score_lambda, Model
 
 
-def find_residuals_and_fitted_cv_values(Model, df, features, chunk, ref_column, best_lambda):
+def find_residuals_and_fitted_cv_values(Model, df, features, days, ref_column, best_lambda):
     model = Model(alpha = best_lambda)
     first = True
-    for d in chunk:               
+    for d in days:               
         #call the function that defines the training and holdout data
-        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.chunk != d], df[df.chunk == d], ref_column)  
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)  
         #fit the ridge regression for the lambda
         model.fit(X_T, y_T)
         if first:
