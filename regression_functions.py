@@ -149,15 +149,12 @@ def find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all):
     return df_cv
 
 
-def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, diff_in_mean_cv_highest):
+def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H):
     print "Training RMSE:", round(np.sqrt(train_MSE),1)
     print (
         "Cross-Validation RMSE: " + str(round(np.sqrt(CV_MSE))) + " , " +
-        "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " 
-        )
-    print (
-        "CV High Diff. in Mean (>60): " + str(round(diff_in_mean_cv, 1)) + " , " +
-        "CV High Diff. in Mean (>70): " + str(round(diff_in_mean_cv_highest, 1)) 
+        "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " +
+        "CV High Diff. in Mean (>60): " + str(round(diff_in_mean_cv, 1)) 
         )
 
     print (
@@ -214,9 +211,8 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
     #find the percentage difference between the high reference and predicted values
     diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])
-    diff_in_mean_cv_highest = np.mean(X_pred_cv_all[y_CV_all >= 70]) - np.mean(y_CV_all[y_CV_all >= 70])
     #print out important stats
-    print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, diff_in_mean_cv_highest) 
+    print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
 

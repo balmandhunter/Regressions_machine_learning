@@ -17,19 +17,30 @@ def plot_params():
     return a, b, plt.gca(), size
 
 
-def plot_tr_and_holdout(df, pod_num, time_chunk, ref_column):
-    plt.figure(facecolor='w', figsize = (15,10))
+def plot_tr_and_holdout(df, pod_num, ref_column, label):
+    plt.figure(facecolor='w', figsize = (15,20))
     a, b, axes, label_size = plot_params()
-    df[ref_column].plot(marker = '.',linestyle = ' ', label = 'Reference Data')
-    if time_chunk != 0:
-        xlim = assign_pod_calibration_times(pod_num, time_chunk)
-        axes.set_xlim(xlim)
-    axes.set_ylim([-10,90])
-    plt.grid(b=True, which='major', color='g', linestyle='-.')
-    plt.legend(fontsize = label_size)
     plt.ylabel('Ozone Concentration (ppb)', size = label_size)
     plt.xlabel('Date', size = label_size)
 
+    ax1 = plt.subplot(311)
+    df[ref_column].plot(marker = '.',linestyle = ' ', label = label)
+    xlim = assign_pod_calibration_times(pod_num, 1)
+    ax1.set_xlim(xlim)
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+
+    ax2 = plt.subplot(312)
+    df[ref_column].plot(marker = '.',linestyle = ' ', label = 'Training Data')
+    xlim = assign_pod_calibration_times(pod_num, 2)
+    ax2.set_xlim(xlim)
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+
+    ax3 = plt.subplot(313)
+    df[ref_column].plot(marker = '.',linestyle = ' ', label = 'Training Data')
+    xlim = assign_pod_calibration_times(pod_num, 3)
+    ax3.set_xlim(xlim)
+    plt.grid(b=True, which='major', color='g', linestyle='-.')
+    
 
 def plot_hist(values, other, title):
     plt.figure(figsize = (10,5))
