@@ -218,11 +218,11 @@ def plot_resid_vs_time(resid, pod_num, time_chunk):
     plt.ylabel('Residuals', size = label_size)
 
 
-def plot_lambda(lambda_ridge, coefs, mean_score_lambda, Model):
+def plot_lambda(lambda_ridge, coefs, mean_score_lambda):
     #plot the coefficients
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
-    axes.set_ylim(-10, 10)
+    #axes.set_ylim(-50, 50)
     ax = plt.gca()
     ax.set_color_cycle(['b', 'r', 'g', 'c', 'k', 'y', 'm'])
 
