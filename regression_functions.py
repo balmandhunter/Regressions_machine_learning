@@ -122,7 +122,7 @@ def fitting_func(model, X_T, y_T, X_CV, y_CV):
     #fit a linear regression on the training data
     model.fit(X_T, y_T)   
     #find the normalized MSE for the training and holdout data
-    score_cv_day = np.mean((y_CV[y_CV >= 60] - model.predict(X_CV)[y_CV >= 60])**2)
+    score_cv_day = np.mean((y_CV[y_CV >= 55] - model.predict(X_CV)[y_CV >= 55])**2)
     return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV), score_cv_day
 
 
@@ -135,9 +135,9 @@ def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model):
     #find the t_stat anf p_value
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
     #find the difference in means between the high reference and predicted data
-    diff_in_mean = np.mean(model.predict(X_H)[y_H >= 60]) - np.mean(y_H[y_H >= 60])
+    diff_in_mean = np.mean(model.predict(X_H)[y_H >= 55]) - np.mean(y_H[y_H >= 55])
     MSE_H = np.mean((y_H - model.predict(X_H))**2)
-    MSE_H_high = np.mean((y_H[y_H >= 60] - model.predict(X_H)[y_H >= 60])**2)
+    MSE_H_high = np.mean((y_H[y_H >= 55] - model.predict(X_H)[y_H >= 55])**2)
 
     return df_H, MSE_H, MSE_H_high, t_stat, p_value, round(diff_in_mean, 1)
 
@@ -154,7 +154,7 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
     print (
         "Cross-Validation RMSE: " + str(round(np.sqrt(CV_MSE))) + " , " +
         "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " +
-        "CV High Diff. in Mean (>60): " + str(round(diff_in_mean_cv, 1)) 
+        "CV High Diff. in Mean (>55): " + str(round(diff_in_mean_cv, 1)) 
         )
 
     print (
@@ -210,7 +210,7 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
     #find the predicted values for the holdout data and put them in a dataframe
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
     #find the percentage difference between the high reference and predicted values
-    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 60]) - np.mean(y_CV_all[y_CV_all >= 60])
+    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 55]) - np.mean(y_CV_all[y_CV_all >= 55])
     #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
@@ -247,7 +247,7 @@ def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_fe
 
 
 def custom_high_scoring_function(y, y_pred):
-    high_sum = np.mean(((y - y_pred)[y >= 65])**2)
+    high_sum = np.mean(((y - y_pred)[y >= 55])**2)
     return high_sum
 
 
@@ -256,9 +256,9 @@ def custom_mse(y, y_pred):
 
 
 def custom_mse_scoring_function(y, y_pred):
-    low_MSE = np.nan_to_num(np.mean( 0.1*((y - y_pred)[y < 60])**2 ))
-    high_MSE = np.nan_to_num( np.mean( ( (y - y_pred)[y >= 60] )**2 ) )
-    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= 60]) - np.median(y[y >= 60]))) 
+    low_MSE = np.nan_to_num(np.mean( 0.1*((y - y_pred)[y < 55])**2 ))
+    high_MSE = np.nan_to_num( np.mean( ( (y - y_pred)[y >= 55] )**2 ) )
+    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= 55]) - np.median(y[y >= 55]))) 
 
     return (np.sqrt((low_MSE + high_MSE))*2 + diff_in_median_cv)
 
