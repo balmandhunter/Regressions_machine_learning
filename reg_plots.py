@@ -180,13 +180,13 @@ def myround(x, base):
     return int(base * round(float(x)/base))
 
 
-def plot_error_vs_features(score, RMSE):
+def plot_error_vs_features(score, RMSE, ylim):
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
     x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
-    axes.set_ylim([0,22])
+    axes.set_ylim(ylim)
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')

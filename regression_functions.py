@@ -119,15 +119,15 @@ def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
     return X_H, y_H, X_T, y_T
 
 
-def fitting_func(model, X_T, y_T, X_CV, y_CV):    
+def fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff):    
     #fit a linear regression on the training data
     model.fit(X_T, y_T)   
     #find the normalized MSE for the training and holdout data
-    MSE_high_day = np.mean((y_CV[y_CV >= 55] - model.predict(X_CV)[y_CV >= 55])**2)
+    MSE_high_day = np.mean((y_CV[y_CV >= cutoff] - model.predict(X_CV)[y_CV >= cutoff])**2)
     return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV), MSE_high_day
 
 
-def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model):
+def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff):
     df_H = df_H.copy()
     X_H, y_H, X_T, y_T = numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column)
     model.fit(X_T, y_T)
@@ -136,9 +136,9 @@ def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model):
     #find the t_stat anf p_value
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
     #find the difference in means between the high reference and predicted data
-    diff_in_mean = np.mean(model.predict(X_H)[y_H >= 55]) - np.mean(y_H[y_H >= 55])
+    diff_in_mean = np.mean(model.predict(X_H)[y_H >= cutoff]) - np.mean(y_H[y_H >= cutoff])
     MSE_H = np.mean((y_H - model.predict(X_H))**2)
-    MSE_H_high = np.mean((y_H[y_H >= 55] - model.predict(X_H)[y_H >= 55])**2)
+    MSE_H_high = np.mean((y_H[y_H >= cutoff] - model.predict(X_H)[y_H >= cutoff])**2)
 
     return df_H, MSE_H, MSE_H_high, t_stat, p_value, round(diff_in_mean, 1)
 
@@ -150,12 +150,12 @@ def find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all):
     return df_cv
 
 
-def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H):
+def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, cutoff):
     print "Training RMSE:", round(np.sqrt(train_MSE),1)
     print (
         "Cross-Validation RMSE: " + str(round(np.sqrt(CV_MSE))) + " , " +
         "High-Value CV RMSE: " + str(round(np.sqrt(score_cv))) + " , " +
-        "CV High Diff. in Mean (>55): " + str(round(diff_in_mean_cv, 1)) 
+        "CV High Diff. in Mean (>" + str(cutoff) + "):" + " " +str(round(diff_in_mean_cv, 1)) 
         )
 
     print (
@@ -166,7 +166,7 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
     
 
 #Define a function that loops through all of the days (CV by day), and computes MSE.
-def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
+def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, cutoff):
     #initialize the holdout and training MSE
     MSE_CV = np.zeros(len(days)) 
     MSE_T = np.zeros(len(days)) 
@@ -185,7 +185,7 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
             df_tr[df_tr.day == d], 
             ref_column
         )   
-        MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV)
+        MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff)
         #record the MSE for lambda for the day
         MSE_CV[count] = MSE_CV_day
         MSE_T[count] = MSE_T_day
@@ -209,11 +209,11 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column):
     #find the predicted values for the cross-validation data and put them in a dataframe
     df_cv = find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all)
     #find the predicted values for the holdout data and put them in a dataframe
-    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model)
+    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff)
     #find the percentage difference between the high reference and predicted values
-    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 55]) - np.mean(y_CV_all[y_CV_all >= 55])
+    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= cutoff]) - np.mean(y_CV_all[y_CV_all >= cutoff])
     #print out important stats
-    print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H) 
+    print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, cutoff) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
 
@@ -248,7 +248,7 @@ def find_fitted_cv_values_for_best_features(df_T, df_H, fs_features, num_good_fe
 
 
 def custom_high_scoring_function(y, y_pred):
-    high_sum = np.mean(((y - y_pred)[y >= 55])**2)
+    high_sum = np.mean(((y - y_pred)[y >= cutoff])**2)
     return high_sum
 
 
@@ -256,19 +256,39 @@ def custom_mse(y, y_pred):
     return np.mean( (y - y_pred)**2 )
 
 
-def custom_mse_scoring_function(y, y_pred):
-    low_MSE = np.nan_to_num(np.mean( 0.1*((y - y_pred)[y < 55])**2 ))
-    high_MSE = np.nan_to_num( np.mean( ( (y - y_pred)[y >= 55] )**2 ) )
-    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= 55]) - np.median(y[y >= 55]))) 
-    return (np.sqrt(low_MSE + high_MSE)*2 + diff_in_median_cv)
+def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr, factor, cutoff):
+    first = True
+    custom_score = np.zeros(len(days_tr))
+    count = 0
+    for d in days_tr:  
+        #call the df_subset function to make numpy arrays out of the training and holdout data
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
+        lin_regr = model.fit(X_T, y_T)        
+        y_pred_day = lin_regr.predict(X_CV)
+        custom_score_day = custom_mse_scoring_function(y_CV, y_pred_day, factor, cutoff)
+        custom_score[count] = custom_score_day
+        count += 1
+
+    #remove the zeros from the score (the zeros are from days where ozone conc. never passed the high limit)
+    custom_score_all =  filter(lambda a: a != 0, custom_score) 
+    print  custom_score_all   
+    score_cv = round(np.mean(custom_score_all), 2)     
+    return score_cv
 
 
-def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, days_tr):
+def custom_mse_scoring_function(y, y_pred, factor, cutoff):
+    low_MSE = np.nan_to_num(np.mean( 0.1*((y - y_pred)[y < cutoff])**2 ))
+    high_MSE = np.nan_to_num( np.mean( ( (y - y_pred)[y >= cutoff] )**2 ) )
+    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= cutoff]) - np.median(y[y >= cutoff])))
+    return np.absolute(-np.sqrt(low_MSE + high_MSE)*factor + diff_in_median_cv)
+
+
+def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric, days_tr, factor, cutoff):
     #initialize min_MSE with a very large number
     min_score = 100000000
     next_feature = ''
     for f in features:
-        score_cv_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, days_tr)
+        score_cv_step = avg_cv_score_for_all_days(df, b_f + [f], ref_column, model, scoring_metric, days_tr, factor, cutoff)
         if score_cv_step < min_score:
             min_score = score_cv_step
             next_feature = f
@@ -276,13 +296,13 @@ def forward_selection_step(model, b_f, features, df, ref_column, scoring_metric,
     return next_feature, score_cv
 
 
-def forward_selection_lodo(model, features, df, scoring_metric, ref_column, days_tr, n_feat):
+def forward_selection_lodo(model, features, df, scoring_metric, ref_column, days_tr, n_feat, factor, cutoff):
     #initialize the best_features list with the base features to force their inclusion
     best_features = []
     score_cv = []
     RMSE = []
     while len(features) > 0 and len(best_features) < n_feat:   
-        next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, days_tr)
+        next_feature, score_cv_feat = forward_selection_step(model, best_features, features, df, ref_column, scoring_metric, days_tr, factor, cutoff)
         #add the next feature to the list
         best_features += [next_feature]
         MSE_feat = -np.mean(cross_val_score(model, df[best_features].values, df[ref_column].values, 
@@ -297,26 +317,7 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, days
     return best_features, score_cv, RMSE
 
 
-def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr):
-    first = True
-    custom_score = np.zeros(len(days_tr))
-    count = 0
-    for d in days_tr:  
-        #call the df_subset function to make numpy arrays out of the training and holdout data
-        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
-        lin_regr = model.fit(X_T, y_T)        
-        y_pred_day = lin_regr.predict(X_CV)
-        custom_score_day = custom_mse_scoring_function(y_CV, y_pred_day)
-        custom_score[count] = custom_score_day
-        count += 1
-
-    #remove the zeros from the high-value score (the zeros are from days where ozone conc. never passed the high limit)
-    custom_score_all =  filter(lambda a: a != 0, custom_score)    
-    score_cv = round(np.mean(custom_score_all), 2)     
-    return score_cv
-
-
-def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X, y, min_lambda, max_lambda, mult_factor):
+def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X, y, min_lambda, max_lambda, mult_factor, factor):
     lambda_ridge = []
     mean_score_lambda = []
     i = min_lambda
@@ -327,7 +328,7 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X
         model = Model(alpha=i)    
         model.fit(X, y)
         #record the custom score for this lambda value
-        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr))
+        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr, factor))
         print 'score:', mean_score_lambda[n-1] 
         #record the lambda value for this run
         lambda_ridge.append(i)
