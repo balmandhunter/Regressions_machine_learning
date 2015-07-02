@@ -8,6 +8,7 @@ from scipy import stats
 from sklearn.learning_curve import learning_curve
 from sklearn.metrics import make_scorer
 from sklearn import cross_validation
+from matplotlib.font_manager import FontProperties
 
 
 def plot_params():
@@ -45,18 +46,19 @@ def plot_tr_and_holdout(df, pod_num, ref_column, label, cutoff):
     
 
 def plot_hist(values, other, title):
-    plt.figure(figsize = (10,5))
+    plt.figure(figsize = (10,5), facecolor='w')
     a, b, axes, label_size = plot_params()
     h = sorted(values)  
-    fit = stats.norm.pdf(h, np.mean(h), np.std(h))  #this is a fitting indeed
-    pl.plot(h, fit, '-o')
+    fit = stats.norm.pdf(h, np.mean(h), np.std(h))  
+    #pl.plot(h, fit, '-o')
     plt.title(title, size = label_size)
     abs_min_dec = min(min(values), min(other))
     abs_max_dec = max(max(values), max(other))
     abs_min = myround(abs_min_dec, 5)
     abs_max = myround(abs_max_dec, 5)
-    pl.hist(h, normed=True, bins=np.arange(abs_min-10,abs_max+10, 5))  
-    axes.set_xlim([-40, 90])
+    pl.hist(h, normed = True, bins=np.arange(abs_min-10,abs_max+10, 5))  
+    axes.set_xlim([-20, 90])
+    axes.set_xlabel('Ozone Concentration (ppb)', size = label_size)
     pl.show()  
 
 
@@ -182,13 +184,14 @@ def myround(x, base):
     return int(base * round(float(x)/base))
 
 
-def plot_error_vs_features(score, RMSE, ylim):
+def plot_error_vs_features(score, RMSE, ylim, xlim):
     plt.figure(facecolor='w', figsize = (10,5))
     a, b, axes, label_size = plot_params()
     x = range(1, len(score)+1)
     plt.plot(x, score, marker = '.', markersize = 20, label='Custom Score')
     plt.plot(x, RMSE, marker = '.', markersize = 20, label='RMSE')
     axes.set_ylim(ylim)
+    axes.set_xlim(xlim)
     plt.xlabel('Number of Features', size = label_size)
     plt.ylabel('Error', size = label_size)
     #plt.grid(b=True, which='major', color='g', linestyle='-.')

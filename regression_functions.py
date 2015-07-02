@@ -21,8 +21,10 @@ from sklearn.decomposition import RandomizedPCA
 from sklearn.linear_model import Ridge
 from sklearn.datasets import load_digits
 from sklearn.learning_curve import learning_curve
+from sklearn.svm import SVR
 import sklearn.decomposition
 import sklearn.preprocessing as pp
+from sklearn.grid_search import GridSearchCV
 
 
 #Declare whether to process raw or filtered data.
@@ -356,11 +358,12 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         #fit the holdout data for the day
         df_CV_rf = df_CV.copy()
         df_CV_rf['O3_fit'] = rfr.predict(X_CV)
+        df_CV_rf['ref_fit'] = y_CV
         #plot the feature importances
         #plot_importance(rfr, forest, features)
         MSE_CV = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
-        print d,'Cross-Validation MSE: ', np.sqrt(MSE_CV)
+        print d,'Cross-Validation RMSE: ', round(np.sqrt(MSE_CV),1)
         return np.sqrt(MSE_CV), df_CV_rf
         
     else:
@@ -427,6 +430,42 @@ def find_daily_min_max(features, df_T, df_H,d):
     return y_H.max(), df_H['Temp'].max(), df_H['Rh'].max(), y_H.min(), df_H['Temp'].min(), df_H['Rh'].min(), 
     y_H.mean(), df_H['Temp'].mean(), df_H['Rh'].mean(), y_H.std(), df_H['Temp'].std(), df_H['Rh'].std(), 
     df_H['e2v03'].max(), df_H['e2v03'].min(), df_H['e2v03'].mean(), df_H['e2v03'].std()
+
+
+def fit_vsm_and_find_MSE(features, df, days, ref_column):    
+    MSE_CV = []
+    day_date = []
+    df_svm_fit = df.copy()
+    first = True
+    for d in days:
+
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
+
+        parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
+        svr = SVR()
+        vsm = GridSearchCV(svr, parameters)
+        vsm.fit(X_T, y_T)  
+
+        if first:
+            fitted_CV_o3 = vsm.predict(X_CV)
+            y_fit = y_CV
+            first = False
+        else:
+            fitted_CV_o3 = np.concatenate((fitted_CV_o3, vsm.predict(X_CV)))
+            y_fit = np.concatenate((y_fit, y_CV)
+        
+        day_date.append(d)  
+        MSE_CV.append(int(np.mean(y_CV - vsm.predict(X_CV)**2)))
+        
+
+        
+        print d, 'Cross-Val RMSE: ', round(np.sqrt(MSE_CV), 1)
+        print vsm.get_params
+
+    df_svm_fit['O3_fit'] = fitted_CV_o3  
+    df_svm_fit['ref_fit'] = y_fit
+    print 'Cross-Validation MSE: ', round(np.sqrt(np.mean(MSE_CV)), 1)
+    return np.sqrt(MSE_CV), df_svm_fit    
 
 
 
