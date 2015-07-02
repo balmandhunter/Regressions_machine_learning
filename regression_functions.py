@@ -64,8 +64,8 @@ def sep_tr_and_holdout(df, ref_column):
     #shuffle the chunks of time
     np.random.shuffle(chunk_list)
     #declare the first 4 chunks of the randomized list to be the holdout chunks
-    hold_chunks = chunk_list[0:4]
-    chunks_tr = chunk_list[4:]
+    hold_chunks = chunk_list[0:3]
+    chunks_tr = chunk_list[3:]
     df_tr = df[~df.chunk.isin(hold_chunks)]
     days_tr = df_tr['day'].unique()
     df_hold = df[df.chunk.isin(hold_chunks)]
@@ -271,7 +271,6 @@ def avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, d
 
     #remove the zeros from the score (the zeros are from days where ozone conc. never passed the high limit)
     custom_score_all =  filter(lambda a: a != 0, custom_score) 
-    print  custom_score_all   
     score_cv = round(np.mean(custom_score_all), 2)     
     return score_cv
 
@@ -317,7 +316,7 @@ def forward_selection_lodo(model, features, df, scoring_metric, ref_column, days
     return best_features, score_cv, RMSE
 
 
-def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X, y, min_lambda, max_lambda, mult_factor, factor):
+def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X, y, min_lambda, max_lambda, mult_factor, factor, cutoff):
     lambda_ridge = []
     mean_score_lambda = []
     i = min_lambda
@@ -328,7 +327,7 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X
         model = Model(alpha=i)    
         model.fit(X, y)
         #record the custom score for this lambda value
-        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr, factor))
+        mean_score_lambda.append(avg_cv_score_for_all_days(df, features, ref_column, model, scoring_metric, days_tr, factor, cutoff))
         print 'score:', mean_score_lambda[n-1] 
         #record the lambda value for this run
         lambda_ridge.append(i)
@@ -348,8 +347,8 @@ def find_best_lambda(Model, features, df, ref_column, scoring_metric, days_tr, X
 def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
     
     if options == 0:
-        rfr = sk.RandomForestRegressor(n_estimators=10, oob_score = True, n_jobs = -1)
-        forest = sk.RandomForestClassifier(n_estimators=10, random_state=0)
+        rfr = sk.RandomForestRegressor(n_estimators = 150, oob_score = True, n_jobs = -1)
+        forest = sk.RandomForestClassifier(n_estimators = 150, random_state = 0)
         #call the function that defines the training and holdout data
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df_T, df_CV, ref_column)                
         #fit a linear regression on the training data
@@ -358,11 +357,11 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         df_CV_rf = df_CV.copy()
         df_CV_rf['O3_fit'] = rfr.predict(X_CV)
         #plot the feature importances
-        plot_importance(rfr, forest, features)
+        #plot_importance(rfr, forest, features)
         MSE_CV = int(np.mean((y_CV - rfr.predict(X_CV))**2))
             
-        print d,'Cross-Validatin MSE: ', MSE_CV
-        return MSE_CV, df_CV_rf
+        print d,'Cross-Validation MSE: ', np.sqrt(MSE_CV)
+        return np.sqrt(MSE_CV), df_CV_rf
         
     else:
         i_max = 10 # max features
@@ -392,16 +391,16 @@ def fit_rfr_and_find_MSE(features, df_T, df_CV, d, options, ref_column):
         return mse_array_CV
 
 
-def find_MSE_random_forest(df, features, chunk, options, ref_column):
+def find_MSE_random_forest(df, features, days, options, ref_column):
     MSE_CV = []
     count = 1
     #Calculate the training and holdout RSS for each step.
     #take the mean MSE for all of the possible holdout days (giving cross-validation error)
-    for d in chunk:
+    for d in days:
         if options == 0:
-            MSE_CV_day, df_rf_CV = fit_rfr_and_find_MSE(features, df[df.chunk != d], df[df.chunk == d], d, options, ref_column)
+            MSE_CV_day, df_rf_CV = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
         else: 
-            MSE_CV_day = fit_rfr_and_find_MSE(features, df[df.chunk != d], df[df.chunk == d], d, options, ref_column)
+            MSE_CV_day = fit_rfr_and_find_MSE(features, df[df.day != d], df[df.day == d], d, options, ref_column)
         
         if count == 1 and options == 0:
             df_rf = df_rf_CV
