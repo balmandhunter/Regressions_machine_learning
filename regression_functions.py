@@ -433,42 +433,35 @@ def find_daily_min_max(features, df_T, df_H,d):
 
 
 def fit_vsm_and_find_MSE(features, df, days, ref_column):
-    print 'bananas'    
     MSE_CV = []
     df_svm_fit = df.copy()
     first = True
     for d in days:
-        print d, 'bonanza'
+        print d
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
 
-        parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
-        svr = SVR()
-        vsm = GridSearchCV(svr, parameters)
+        #parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
+        vsm = SVR(kernel = 'linear')
+        #vsm = GridSearchCV(svr, parameters)
         vsm.fit(X_T, y_T)  
-
-        print y_CV
-        print vsm.predict(X_CV)
 
         if first:
             fitted_CV_o3 = vsm.predict(X_CV)
             y_fit = y_CV
-            print y_CV
-            print vsm.predict(X_CV)
-            MSE_CV = int(np.mean((y_CV - vsm.predict(X_CV))**2))
+            MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
             first = False
         else:
             fitted_CV_o3 = np.concatenate((fitted_CV_o3, vsm.predict(X_CV)))
-            y_fit = np.concatenate((y_fit, y_CV)
+            y_fit = np.concatenate([y_fit, y_CV])
             MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
         
-        print d, 'Cross-Val RMSE: ', round(np.sqrt(MSE_CV), 1)
         #print vsm.get_params
 
     df_svm_fit['O3_fit'] = fitted_CV_o3  
     df_svm_fit['ref_fit'] = y_fit
     print 'Cross-Validation RMSE: ', round(np.sqrt(np.mean(MSE_CV)), 1)
-    return np.sqrt(MSE_CV), df_svm_fit    
-
+    return np.sqrt(MSE_CV), df_svm_fit 
+    
 
 
 if __name__ == "__main__":
