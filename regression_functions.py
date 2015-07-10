@@ -432,34 +432,51 @@ def find_daily_min_max(features, df_T, df_H,d):
     df_H['e2v03'].max(), df_H['e2v03'].min(), df_H['e2v03'].mean(), df_H['e2v03'].std()
 
 
-def fit_vsm_and_find_MSE(features, df, days, ref_column):
+def custom_SVM_scoring_function(y, y_pred):
+    low_MSE = np.nan_to_num(np.mean(0.1*((y - y_pred)[y < 60])**2))
+    high_MSE = np.nan_to_num( np.mean(((y - y_pred)[y >= 60] )**2))
+    diff_in_median_cv = np.nan_to_num((np.median(y_pred[y >= 60]) - np.median(y[y >= 60])))
+    return np.absolute(-np.sqrt(low_MSE + high_MSE) + diff_in_median_cv)
+
+
+def fit_vsm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
     MSE_CV = []
     df_svm_fit = df.copy()
     first = True
+    MSE_T_day = []
+
+    X = df[features].values
+    y = df[ref_column].values
+    parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
+    svr = SVR()
+    vsm = GridSearchCV(svr, parameters, scoring = make_scorer(custom_SVM_scoring_function, greater_is_better = False))
+    vsm.fit(X, y) 
+
     for d in days:
         print d
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
-
-        #parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
-        vsm = SVR(kernel = 'linear')
-        #vsm = GridSearchCV(svr, parameters)
-        vsm.fit(X_T, y_T)  
-
+ 
         if first:
             fitted_CV_o3 = vsm.predict(X_CV)
             y_fit = y_CV
             MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
+            MSE_T_day.append(np.mean((y_T - vsm.predict(X_T))**2))
             first = False
         else:
             fitted_CV_o3 = np.concatenate((fitted_CV_o3, vsm.predict(X_CV)))
             y_fit = np.concatenate([y_fit, y_CV])
             MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
+            MSE_T_day.append(np.mean((y_T - vsm.predict(X_T))**2))
         
         #print vsm.get_params
 
     df_svm_fit['O3_fit'] = fitted_CV_o3  
     df_svm_fit['ref_fit'] = y_fit
-    print 'Cross-Validation RMSE: ', round(np.sqrt(np.mean(MSE_CV)), 1)
+    MSE_T = round(np.sqrt(np.mean(MSE_T_day)),1)
+    diff_in_mean_cv = np.mean(fitted_CV_o3[y_fit >= cutoff]) - np.mean(y_fit[y_fit >= cutoff])
+    MSE_high_day = np.mean((y_fit[y_fit >= cutoff] - fitted_CV_o3[y_fit >= cutoff])**2)
+    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df, ref_column, vsm, cutoff)
+    print_stats(MSE_T, round(np.sqrt(np.mean(MSE_CV)), 1), round(np.sqrt(MSE_high_day), 1), round(diff_in_mean_cv, 1), MSE_H, score_H, diff_in_mean_H, cutoff) 
     return np.sqrt(MSE_CV), df_svm_fit 
     
 
