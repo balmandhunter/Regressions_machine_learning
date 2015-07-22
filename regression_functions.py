@@ -439,7 +439,7 @@ def custom_SVM_scoring_function(y, y_pred):
     return np.absolute(-np.sqrt(low_MSE + high_MSE) + diff_in_median_cv)
 
 
-def fit_vsm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
+def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
     MSE_CV = []
     df_svm_fit = df.copy()
     first = True
@@ -447,35 +447,34 @@ def fit_vsm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
 
     X = df[features].values
     y = df[ref_column].values
-    parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
+    parameters = {'kernel':('linear', 'rbf'), 'C':[0.000001, 1]}
     svr = SVR()
-    vsm = GridSearchCV(svr, parameters, scoring = make_scorer(custom_SVM_scoring_function, greater_is_better = False))
-    vsm.fit(X, y) 
+    svm = GridSearchCV(svr, parameters, scoring = make_scorer(custom_SVM_scoring_function, greater_is_better = False))
+    svm.fit(X, y) 
 
     for d in days:
         print d
         X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df[df.day != d], df[df.day == d], ref_column)   
  
         if first:
-            fitted_CV_o3 = vsm.predict(X_CV)
+            fitted_CV_o3 = svm.predict(X_CV)
             y_fit = y_CV
-            MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
-            MSE_T_day.append(np.mean((y_T - vsm.predict(X_T))**2))
+            MSE_CV.append(np.mean((y_CV - svm.predict(X_CV))**2))
+            MSE_T_day.append(np.mean((y_T - svm.predict(X_T))**2))
             first = False
         else:
-            fitted_CV_o3 = np.concatenate((fitted_CV_o3, vsm.predict(X_CV)))
+            fitted_CV_o3 = np.concatenate((fitted_CV_o3, svm.predict(X_CV)))
             y_fit = np.concatenate([y_fit, y_CV])
-            MSE_CV.append(np.mean((y_CV - vsm.predict(X_CV))**2))
-            MSE_T_day.append(np.mean((y_T - vsm.predict(X_T))**2))
+            MSE_CV.append(np.mean((y_CV - svm.predict(X_CV))**2))
+            MSE_T_day.append(np.mean((y_T - svm.predict(X_T))**2))
         
-        #print vsm.get_params
-
+    print svm.get_params
     df_svm_fit['O3_fit'] = fitted_CV_o3  
     df_svm_fit['ref_fit'] = y_fit
     MSE_T = round(np.sqrt(np.mean(MSE_T_day)),1)
     diff_in_mean_cv = np.mean(fitted_CV_o3[y_fit >= cutoff]) - np.mean(y_fit[y_fit >= cutoff])
     MSE_high_day = np.mean((y_fit[y_fit >= cutoff] - fitted_CV_o3[y_fit >= cutoff])**2)
-    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df, ref_column, vsm, cutoff)
+    df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df, ref_column, svm, cutoff)
     print_stats(MSE_T, round(np.sqrt(np.mean(MSE_CV)), 1), round(np.sqrt(MSE_high_day), 1), round(diff_in_mean_cv, 1), MSE_H, score_H, diff_in_mean_H, cutoff) 
     return np.sqrt(MSE_CV), df_svm_fit 
     
