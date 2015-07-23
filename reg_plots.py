@@ -120,6 +120,8 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-07-13 00:00:00', '2014-7-15 00:00:00']
         elif pod_num == 'N3' or pod_num == 'N5' or pod_num == 'D3':
             xlim = ['2014-07-8 00:00:00', '2014-7-11 00:00:00']
+        elif pod_num == 'F9':
+            xlim = ['2014-08-15 00:00:00', '2014-8-22 00:00:00']
     elif time_chunk == 2: 
         if pod_num == 'D0' or pod_num == 'F8':
             xlim = ['2014-08-30 00:00:00', '2014-09-1 00:00:00']
@@ -140,11 +142,13 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-08-16 00:00:00', '2014-08-18 00:00:00']
         elif pod_num == 'D3':
             xlim = ['2014-08-21 00:00:00', '2014-08-25 00:00:00']
+        elif pod_num == 'F9':
+            xlim = ['2014-08-22 00:00:00', '2014-8-27 00:00:00']
     else:
         if pod_num == 'D3':
             xlim = ['2014-08-26 00:00:00', '2014-08-30 00:00:00']
         elif pod_num == 'D0' or pod_num == 'F8':
-            xlim = ['2014-09-2 00:00:00', '2014-09-4 00:00:00']
+            xlim = ['2014-09-1 00:00:00', '2014-09-4 00:00:00']
         elif pod_num == 'D4' or pod_num == 'F4':
             xlim = ['2014-08-18 00:00:00', '2014-08-21 00:00:00']
         elif pod_num == 'D0':
@@ -160,6 +164,8 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-08-29 00:00:00', '2014-09-4 00:00:00']
         elif pod_num == 'N7':
             xlim = ['2014-08-18 00:00:00', '2014-08-22 00:00:00']
+        elif pod_num == 'F9':
+            xlim = ['2014-08-27 00:00:00', '2014-9-4 00:00:00']
 
 
     return xlim

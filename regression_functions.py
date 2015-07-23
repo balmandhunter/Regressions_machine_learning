@@ -60,6 +60,19 @@ def scale_features_and_create_day_column(df, ref_column):
     return df_sc, features
 
 
+def sep_tr_and_holdout_pre_defined(df, ref_column, chunks):
+    #find the unique values of the day + AM/PM column
+    chunk_list = df.chunk.unique()
+    #declare the first 4 chunks of the randomized list to be the holdout chunks
+    hold_chunks = chunks
+    chunks_tr = [f for f in chunk_list if f not in chunks]
+    df_tr = df[~df.chunk.isin(hold_chunks)]
+    days_tr = df_tr['day'].unique()
+    df_hold = df[df.chunk.isin(hold_chunks)]
+    #df_hold = df_hold[:len(df_hold['day'])-90]
+    return df_tr, df_hold, chunks_tr, days_tr
+
+
 def sep_tr_and_holdout(df, ref_column):
     #find the unique values of the day + AM/PM column
     chunk_list = df.chunk.unique()
