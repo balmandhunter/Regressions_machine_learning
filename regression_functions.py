@@ -129,7 +129,55 @@ def sep_tr_and_holdout(df, ref_column):
     df_tr = df[~df.chunk.isin(hold_chunks)]
     days_tr = df_tr['day'].unique()
     df_hold = df[df.chunk.isin(hold_chunks)]
-    #df_hold = df_hold[:len(df_hold['day'])-90]
+    del_beg_chunks = []
+    del_end_chunks = []
+    hold_del_beg = []
+    hold_del_end = []
+    count = 0
+    first = True 
+
+    #find the time chunks that need time taken off of the beginning or end               
+    for i in range(0, len(chunk_list)):
+        count += 1
+        if first:
+            first = False
+        elif chunk_list[i] not in hold_chunks:
+            if chunk_list[i-1] in hold_chunks:
+                del_beg_chunks.append(chunk_list[i])
+            if count < len(chunk_list) and chunk_list[i+1] in hold_chunks:
+                del_end_chunks.append(chunk_list[i])
+        elif chunk_list[i] in hold_chunks:
+            if chunk_list[i-1] not in hold_chunks:
+                hold_del_beg.append(chunk_list[i])
+            if count < len(chunk_list) and chunk_list[i+1] not in hold_chunks:
+                hold_del_end.append(chunk_list[i])
+
+    #create training dataframe and delete the 90 points that border the holdout data
+    df_tr = df[~df.chunk.isin(hold_chunks)]
+    for i in del_beg_chunks:
+        beg_chunk_loc = df_tr.chunk[df_tr.chunk == i].index.tolist()
+        del_these = beg_chunk_loc[0:90]
+        df_tr = df_tr[~df_tr.index.isin(del_these)]
+
+    for i in del_end_chunks:
+        end_chunk_loc = df_tr.chunk[df_tr.chunk == i].index.tolist()
+        del_these = end_chunk_loc[(len(end_chunk_loc)-89):(len(end_chunk_loc)+1)]
+        df_tr = df_tr[~df_tr.index.isin(del_these)]
+
+    days_tr = df_tr['day'].unique()
+    df_hold = df[df.chunk.isin(hold_chunks)]
+
+    #create holdout dataframe and delete the 90 points that border the training data
+    for i in hold_del_beg:
+        beg_chunk_loc = df_hold.chunk[df_hold.chunk == i].index.tolist()
+        del_these = beg_chunk_loc[0:90]
+        df_hold = df_hold[~df_hold.index.isin(del_these)]
+
+    for i in hold_del_end:
+        end_chunk_loc = df_hold.chunk[df_hold.chunk == i].index.tolist()
+        del_these = end_chunk_loc[(len(end_chunk_loc)-89):(len(end_chunk_loc)+1)]
+        df_hold = df_hold[~df_hold.index.isin(del_these)]
+
     return df_tr, df_hold, chunks_tr, days_tr
 
 
