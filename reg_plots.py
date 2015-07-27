@@ -157,7 +157,7 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             pod_num == 'F6' or pod_num == 'N8'):
             xlim = ['2014-08-26 00:00:00', '2014-08-30 00:00:00']
         elif pod_num == 'F7' or pod_num == 'N4':
-            xlim = ['2014-08-18 00:00:00', '2014-08-21 00:00:00']
+            xlim = ['2014-08-17 00:00:00', '2014-08-21 00:00:00']
         elif pod_num == 'N3':
             xlim = ['2014-08-19 00:00:00', '2014-08-21 00:00:00']
         elif pod_num == 'D4' or pod_num == 'N5':
