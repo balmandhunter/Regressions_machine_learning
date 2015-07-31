@@ -21,7 +21,7 @@ from sklearn.decomposition import RandomizedPCA
 from sklearn.linear_model import Ridge
 from sklearn.datasets import load_digits
 from sklearn.learning_curve import learning_curve
-from sklearn.svm import SVR
+from sklearn.svm import LinearSVR
 import sklearn.decomposition
 import sklearn.preprocessing as pp
 from sklearn.grid_search import GridSearchCV
@@ -121,6 +121,8 @@ def sep_tr_and_holdout_pre_defined(df, ref_column, chunks):
 def sep_tr_and_holdout(df, ref_column):
     #find the unique values of the day + AM/PM column
     chunk_list = df.chunk.unique()
+    print chunk_list
+
     #shuffle the chunks of time
     np.random.shuffle(chunk_list)
     #declare the first 4 chunks of the randomized list to be the holdout chunks
@@ -545,7 +547,7 @@ def custom_SVM_scoring_function(y, y_pred):
     return np.absolute(-np.sqrt(low_MSE + high_MSE) + diff_in_median_cv)
 
 
-def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
+def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor, kernel):
     MSE_CV = []
     df_svm_fit = df.copy()
     first = True
@@ -553,8 +555,8 @@ def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
 
     X = df[features].values
     y = df[ref_column].values
-    parameters = {'kernel':('linear', 'rbf'), 'C':[0.000001, 1]}
-    svr = SVR()
+    parameters = {'C':[1000]}
+    svr = LinearSVR()
     svm = GridSearchCV(svr, parameters, scoring = make_scorer(custom_SVM_scoring_function, greater_is_better = False))
     svm.fit(X, y) 
 
@@ -574,7 +576,7 @@ def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
             MSE_CV.append(np.mean((y_CV - svm.predict(X_CV))**2))
             MSE_T_day.append(np.mean((y_T - svm.predict(X_T))**2))
         
-    print svm.get_params
+    print svm.best_params_
     df_svm_fit['O3_fit'] = fitted_CV_o3  
     df_svm_fit['ref_fit'] = y_fit
     MSE_T = round(np.sqrt(np.mean(MSE_T_day)),1)
