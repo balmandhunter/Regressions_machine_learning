@@ -233,7 +233,7 @@ def fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff):
     #fit a linear regression on the training data
     model.fit(X_T, y_T)   
     #find the normalized MSE for the training and holdout data
-    MSE_high_day = np.mean((y_CV[y_CV >= cutoff] - model.predict(X_CV)[y_CV >= cutoff])**2)
+    MSE_high_day = np.mean((y_CV[y_CV >= 50] - model.predict(X_CV)[y_CV >= 50])**2)
     return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV), MSE_high_day
 
 
@@ -246,9 +246,9 @@ def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff
     #find the t_stat anf p_value
     t_stat, p_value = stats.ttest_ind(model.predict(X_H), y_H, equal_var = False)
     #find the difference in means between the high reference and predicted data
-    diff_in_mean = np.mean(model.predict(X_H)[y_H >= cutoff]) - np.mean(y_H[y_H >= cutoff])
+    diff_in_mean = np.mean(model.predict(X_H)[y_H >= 50]) - np.mean(y_H[y_H >= 50])
     MSE_H = np.mean((y_H - model.predict(X_H))**2)
-    MSE_H_high = np.mean((y_H[y_H >= cutoff] - model.predict(X_H)[y_H >= cutoff])**2)
+    MSE_H_high = np.mean((y_H[y_H >= 50] - model.predict(X_H)[y_H >= 50])**2)
 
     return df_H, MSE_H, MSE_H_high, t_stat, p_value, round(diff_in_mean, 1)
 
@@ -321,7 +321,7 @@ def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, cuto
     #find the predicted values for the holdout data and put them in a dataframe
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff)
     #find the percentage difference between the high reference and predicted values
-    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= cutoff]) - np.mean(y_CV_all[y_CV_all >= cutoff])
+    diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 50]) - np.mean(y_CV_all[y_CV_all >= 50])
     #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, cutoff) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
@@ -547,15 +547,16 @@ def custom_SVM_scoring_function(y, y_pred):
     return np.absolute(-np.sqrt(low_MSE + high_MSE) + diff_in_median_cv)
 
 
-def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor, kernel):
+def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor):
     MSE_CV = []
     df_svm_fit = df.copy()
     first = True
     MSE_T_day = []
 
+   
     X = df[features].values
     y = df[ref_column].values
-    parameters = {'C':[1000]}
+    parameters = {'C':[1], 'epsilon': [0.1, 1, 10]}
     svr = LinearSVR()
     svm = GridSearchCV(svr, parameters, scoring = make_scorer(custom_SVM_scoring_function, greater_is_better = False))
     svm.fit(X, y) 
@@ -580,11 +581,11 @@ def fit_svm_and_find_MSE(features, df, days, ref_column, cutoff, df_H, factor, k
     df_svm_fit['O3_fit'] = fitted_CV_o3  
     df_svm_fit['ref_fit'] = y_fit
     MSE_T = round(np.sqrt(np.mean(MSE_T_day)),1)
-    diff_in_mean_cv = np.mean(fitted_CV_o3[y_fit >= cutoff]) - np.mean(y_fit[y_fit >= cutoff])
+    diff_in_mean_cv = np.mean(fitted_CV_o3[y_fit >= 50]) - np.mean(y_fit[y_fit >= 50])
     MSE_high_day = np.mean((y_fit[y_fit >= cutoff] - fitted_CV_o3[y_fit >= cutoff])**2)
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df, ref_column, svm, cutoff)
     print_stats(MSE_T, round(np.sqrt(np.mean(MSE_CV)), 1), round(np.sqrt(MSE_high_day), 1), round(diff_in_mean_cv, 1), MSE_H, score_H, diff_in_mean_H, cutoff) 
-    return np.sqrt(MSE_CV), df_svm_fit 
+    return np.sqrt(MSE_CV), df_svm_fit, df_H
     
 
 
