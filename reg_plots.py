@@ -43,14 +43,14 @@ def plot_tr_and_holdout(df, pod_num, ref_column, label, cutoff):
     plt.axhline(y = cutoff, color = 'r', linestyle = '-.')
 
 
-def plot_03_temp_rh(df, pod_num, ref_column, label, cutoff):
+def plot_03_temp_rh(df, pod_num, ref_column, label, cutoff, chunk):
     plt.figure(facecolor='w', figsize = (15,20))
     a, b, axes, label_size = plot_params()
     plt.xlabel('Time', size = 18)
 
     ax1 = plt.subplot(411)
     df['e2v03'].plot(marker = '.',linestyle = '-', label = label)
-    xlim = assign_pod_calibration_times(pod_num, 2)
+    xlim = assign_pod_calibration_times(pod_num, chunk)
     plt.ylabel('MOx Sensor Ozone Signal ', size = label_size)
     ax1.set_xlim(xlim)
     ax1.axes.get_xaxis().set_visible(False)
