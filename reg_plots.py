@@ -36,13 +36,41 @@ def plot_tr_and_holdout(df, pod_num, ref_column, label, cutoff):
     ax2.set_xlim(xlim)
     plt.axhline(y = cutoff, color = 'r', linestyle = '-.')
 
-
     ax3 = plt.subplot(313)
     df[ref_column].plot(marker = '.',linestyle = '-', label = 'Training Data')
     xlim = assign_pod_calibration_times(pod_num, 3)
     ax3.set_xlim(xlim)
     plt.axhline(y = cutoff, color = 'r', linestyle = '-.')
 
+
+def plot_03_temp_rh(df, pod_num, ref_column, label, cutoff):
+    plt.figure(facecolor='w', figsize = (15,20))
+    a, b, axes, label_size = plot_params()
+    plt.xlabel('Time', size = 18)
+
+    ax1 = plt.subplot(411)
+    df['e2v03'].plot(marker = '.',linestyle = '-', label = label)
+    xlim = assign_pod_calibration_times(pod_num, 2)
+    plt.ylabel('MOx Sensor Ozone Signal ', size = label_size)
+    ax1.set_xlim(xlim)
+    ax1.axes.get_xaxis().set_visible(False)
+
+    ax2 = plt.subplot(412)
+    df[ref_column].plot(marker = '.',linestyle = '-', label = label)
+    plt.ylabel('Ozone Concentration (ppb)', size = label_size)
+    ax2.set_xlim(xlim)
+    ax2.axes.get_xaxis().set_visible(False)
+
+    ax3 = plt.subplot(413)
+    df['Temp'].plot(marker = '.',linestyle = '-', label = label)
+    plt.ylabel('Scaled Temperature', size = label_size)
+    ax3.set_xlim(xlim)
+    ax3.axes.get_xaxis().set_visible(False)
+
+    ax4 = plt.subplot(414)
+    df['Rh'].plot(marker = '.',linestyle = '-', label = label)
+    plt.ylabel('Scaled Relative Humidity', size = label_size)
+    ax4.set_xlim(xlim)
     
 
 def plot_hist(values, other, title):
