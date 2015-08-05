@@ -194,8 +194,6 @@ def assign_pod_calibration_times(pod_num, time_chunk):
             xlim = ['2014-08-18 00:00:00', '2014-08-22 00:00:00']
         elif pod_num == 'F9':
             xlim = ['2014-08-27 00:00:00', '2014-9-4 00:00:00']
-
-
     return xlim
 
 
@@ -210,6 +208,33 @@ def plot_fitted_and_ref_vs_time(df, pod_num, time_chunk, ref_column):
         df.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Predicted Data')
     axes.set_ylim([-10,90])
     plt.legend(fontsize = label_size)
+    plt.ylabel('Ozone Concentration (ppb)', size = label_size)
+    plt.xlabel('Date', size = label_size)
+
+    
+def plot_field(df_best, df_base, df_tower, time_chunk):
+    plt.figure(facecolor='w', figsize = (20,5))
+    a, b, axes, label_size = plot_params()
+    if time_chunk == 1:
+        df_best.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Best Features', xlim = ['2014-07-22 00:00:00', '2014-8-1 00:00:00'], alpha = 0.5, color = '#fc8d62')
+        df_base.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Base Features', xlim = ['2014-07-22 00:00:00', '2014-8-1 00:00:00'], alpha = 0.5, color = '#66c2a5')
+        df_tower.ozone.plot(marker = '.',linestyle = ' ', label = '2b data', xlim = ['2014-07-22 00:00:00', '2014-8-1 00:00:00'], alpha = 0.5, color = '#8da0cb')
+        plt.axhline(y = 75, color = 'r', linestyle = '-.')
+
+
+    elif time_chunk == 2:
+        df_best.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Best Features', xlim = ['2014-08-1 00:00:00', '2014-8-10 00:00:00'], alpha = 0.5, color = '#fc8d62')
+        df_base.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Base Features', xlim = ['2014-08-1 00:00:00', '2014-8-10 00:00:00'], alpha = 0.5, color = '#66c2a5')
+        df_tower.ozone.plot(marker = '.',linestyle = ' ', label = '2b data', xlim = ['2014-08-1 00:00:00', '2014-8-10 00:00:00'], alpha = 0.5, color = '#8da0cb')
+        plt.axhline(y = 75, color = 'r', linestyle = '-.')
+
+    elif time_chunk == 3:
+        df_best.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Best Features', xlim = ['2014-8-10 00:00:00', '2014-8-20 00:00:00'], alpha = 0.5, color = '#fc8d62')
+        df_base.O3_fit.plot(marker = '.',linestyle = ' ', label = 'Base Features', xlim = ['2014-8-10 00:00:00', '2014-8-20 00:00:00'], alpha = 0.5, color = '#66c2a5')
+        df_tower.ozone.plot(marker = '.',linestyle = ' ', label = '2b data', xlim = ['2014-8-10 00:00:00', '2014-8-20 00:00:00'], alpha = 0.5, color = '#8da0cb')
+        plt.axhline(y = 75, color = 'r', linestyle = '-.')
+
+    axes.set_ylim([0,90])
     plt.ylabel('Ozone Concentration (ppb)', size = label_size)
     plt.xlabel('Date', size = label_size)
 

@@ -39,9 +39,17 @@ def declare_filt_or_raw_dataset(which_data):
         pod_ozone = 'e2v03'
     return ref_column, leave_out_pod, pod_ozone
 
+
 def sci_minmax(X):
     minmax_scale = pp.MinMaxScaler(feature_range=(0, 1), copy=True)
-    return minmax_scale.fit_transform(X)
+    minmax_scale_fit = minmax_scale.fit(X)
+    return minmax_scale_fit.transform(X), minmax_scale_fit
+
+
+def pp_standard_scaler(X):
+    standard_scale = pp.StandardScaler()
+    standard_scale_fit = standard_scale.fit(X)
+    return standard_scale_fit.transform(X), standard_scale_fit
 
 
 def scale_features_and_create_day_column(df, ref_column):
@@ -49,10 +57,30 @@ def scale_features_and_create_day_column(df, ref_column):
     df_scaled = df_prescaled.copy() 
     features = [x for x in list(df_scaled.ix[:,0:len(df.columns)]) if x != ref_column]
     #prescale the features
-    df_prescaled = df_scaled[features].apply(lambda x: sci_minmax(x))
+    prescaled, minmax_scale_fit = sci_minmax(df_scaled[features])
     #Center feature values around zero and make them all have variance on the same order.
-    df_scaled = df_prescaled[features].apply(lambda x: pp.scale(x))
+    df_scaled_array, standard_scale_fit = pp_standard_scaler(prescaled)
+    df_scaled = pd.DataFrame(df_scaled_array, columns = features)
+    index_col = df.index
+    df_scaled.set_index(index_col, inplace = True)
+    #df_scaled = df_prescaled[features].apply(df_scaled_array)
     df_sc = pd.concat([df_scaled, df[ref_column]], axis = 1)  
+    #add a 'day' column 
+    df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
+    #add a column that has the day and 'AM' or "PM"
+    df_sc['chunk'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day) + " " + ("AM" if dt.hour < 12 else "PM"))
+    return df_sc, features, minmax_scale_fit, standard_scale_fit
+
+
+def reapply_scaling_functions(df, ref_column, minmax_scale_fit, standard_scale_fit):
+    df_prescaled = df.copy().astype(float)
+    df_scaled = df_prescaled.copy() 
+    features = [x for x in list(df_scaled.ix[:,0:len(df.columns)]) if x != ref_column]
+    prescaled = minmax_scale_fit.transform(df_scaled[features])
+    df_scaled_array = standard_scale_fit.transform(prescaled)
+    df_sc = pd.DataFrame(df_scaled_array, columns = features)
+    index_col = df.index
+    df_sc.set_index(index_col, inplace = True)
     #add a 'day' column 
     df_sc['day'] = df_sc.index.map(lambda dt: str(dt.month) + '-' + str(dt.day))
     #add a column that has the day and 'AM' or "PM"
@@ -229,6 +257,14 @@ def numpy_arrays_for_holdout_and_training(features, df_H, df_tr, ref_column):
     return X_H, y_H, X_T, y_T
 
 
+def numpy_arrays_for_field_and_training(features, df_field, df_tr, ref_column):
+    features = [f for f in features if f not in 'chunk']
+    X_T = df_tr[features].values
+    X_field = df_field[features].values
+    y_T = df_tr[ref_column].values
+    return X_field, X_T, y_T
+
+
 def fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff):    
     #fit a linear regression on the training data
     model.fit(X_T, y_T)   
@@ -249,8 +285,15 @@ def find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff
     diff_in_mean = np.mean(model.predict(X_H)[y_H >= 50]) - np.mean(y_H[y_H >= 50])
     MSE_H = np.mean((y_H - model.predict(X_H))**2)
     MSE_H_high = np.mean((y_H[y_H >= 50] - model.predict(X_H)[y_H >= 50])**2)
-
     return df_H, MSE_H, MSE_H_high, t_stat, p_value, round(diff_in_mean, 1)
+
+
+def fit_field_data(df_field, df_tr, features, ref_column, model):
+    df_field_fitting = df_field.copy()
+    X_field, X_T, y_T = numpy_arrays_for_field_and_training(features, df_field, df_tr, ref_column)
+    model.fit(X_T, y_T)
+    df_field_fitting['O3_fit'] = model.predict(X_field)
+    return df_field_fitting
 
 
 def find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all):
