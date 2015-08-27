@@ -267,7 +267,7 @@ def numpy_arrays_for_field_and_training(features, df_field, df_tr, ref_column):
 
 def fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff):    
     #fit a linear regression on the training data
-    model.fit(X_T, y_T)   
+    model.fit(X_T, y_T) 
     #find the normalized MSE for the training and holdout data
     MSE_high_day = np.mean((y_CV[y_CV >= 50] - model.predict(X_CV)[y_CV >= 50])**2)
     return np.mean((y_CV - model.predict(X_CV))**2), np.mean((y_T - model.predict(X_T))**2), model.predict(X_CV), MSE_high_day
@@ -316,56 +316,55 @@ def print_stats(train_MSE, CV_MSE, score_cv, diff_in_mean_cv, MSE_H, score_H, di
         "High-Value Holdout RMSE: " + str(round(np.sqrt(score_H))) + " , "
         "Holdout High Diff. in Mean.: " + str(diff_in_mean_H) 
         )
-    
 
-#Define a function that loops through all of the days (CV by day), and computes MSE.
-def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, cutoff):
-    #initialize the holdout and training MSE
+def record_MSE_for_lambda_and_day(score_cv_day, X_pred_cv, y_CV, days, count, score_cv_all, y_CV_all, X_pred_cv_all):
+    if not np.isnan(score_cv_day):
+        score_cv_all[count] = score_cv_day
+
+    if count == 0:
+        X_pred_cv_all = X_pred_cv            
+        y_CV_all = y_CV
+        first = False
+    else:
+        X_pred_cv_all = np.concatenate([X_pred_cv_all, X_pred_cv])
+        y_CV_all = np.concatenate([y_CV_all, y_CV])
+    return X_pred_cv_all, y_CV_all, score_cv_all
+
+
+def fit_data_and_find_MSE(features, df_tr, ref_column, model, cutoff, days):
     MSE_CV = np.zeros(len(days)) 
     MSE_T = np.zeros(len(days)) 
     score_cv_all = np.zeros(len(days))
-    count = 0
     y_CV_all = []
     X_pred_cv_all = []
-    first = True
-    #Calculate the training and holdout RSS for each step.
-    #take the mean MSE for all of the possible holdout days (giving cross-validation error)
-    for d in days:   
-        #call the df_subset function to make numpy arrays out of the training and holdout data
-        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(
-            features, 
-            df_tr[df_tr.day != d], 
-            df_tr[df_tr.day == d], 
-            ref_column
-        )   
-        MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff)
-        #record the MSE for lambda for the day
-        MSE_CV[count] = MSE_CV_day
-        MSE_T[count] = MSE_T_day
-        if not np.isnan(score_cv_day):
-            score_cv_all[count] = score_cv_day
+    count = 0
 
-        if first:
-            X_pred_cv_all = X_pred_cv
-            y_CV_all = y_CV
-            first = False
+    for d in days:  
+        #call the df_subset function to make numpy arrays out of the training and holdout data
+        X_T, y_T, X_CV, y_CV = numpy_arrays_for_tr_and_cv(features, df_tr[df_tr.day != d], df_tr[df_tr.day == d], ref_column)  
+        if len(X_CV) != 0 and len(y_CV) != 0: 
+            MSE_CV_day, MSE_T_day, X_pred_cv, score_cv_day = fitting_func(model, X_T, y_T, X_CV, y_CV, cutoff)
+            X_pred_cv_all, y_CV_all, score_cv_all = record_MSE_for_lambda_and_day(score_cv_day, X_pred_cv, y_CV, days, count, score_cv_all, y_CV_all, X_pred_cv_all)
+            MSE_CV[count] = MSE_CV_day
+            MSE_T[count] = MSE_T_day
         else:
-            X_pred_cv_all = np.concatenate([X_pred_cv_all, X_pred_cv])
-            y_CV_all = np.concatenate([y_CV_all, y_CV])
+            MSE_CV[count] = nan
+            MSE_T[count] = nan
         count += 1
-    #remove the zeros from the high-value score (the zeros are from data chunks where ozone conc. never passed the high limit)
+    return score_cv_all, MSE_CV, MSE_T, X_pred_cv_all, y_CV_all
+
+
+def cross_validation_by_day(model, features, df_tr, df_H, days, ref_column, cutoff):
+    score_cv_all, MSE_CV, MSE_T, X_pred_cv_all, y_CV_all = fit_data_and_find_MSE(features, df_tr, ref_column, model, cutoff, days) 
+    #remove the zeros from the high-value custom score array (the zeros are from data chunks where ozone conc. never passed the high limit)
     score_cv_all =  filter(lambda a: a != 0, score_cv_all)    
     score_cv = np.mean(score_cv_all)        
-    #find the mean MSE of all of the days for the given value of lambda
     mean_CV_MSE_all_days = np.mean(MSE_CV)
     mean_train_MSE_all_Days = np.mean(MSE_T)
-    #find the predicted values for the cross-validation data and put them in a dataframe
     df_cv = find_predicted_cv_data(df_tr, X_pred_cv_all, y_CV_all)
-    #find the predicted values for the holdout data and put them in a dataframe
     df_H, MSE_H, score_H, t_stat, p_value, diff_in_mean_H = find_predicted_holdout_data(df_H, features, df_tr, ref_column, model, cutoff)
     #find the percentage difference between the high reference and predicted values
     diff_in_mean_cv = np.mean(X_pred_cv_all[y_CV_all >= 50]) - np.mean(y_CV_all[y_CV_all >= 50])
-    #print out important stats
     print_stats(mean_train_MSE_all_Days, mean_CV_MSE_all_days, score_cv, diff_in_mean_cv, MSE_H, score_H, diff_in_mean_H, cutoff) 
     return mean_CV_MSE_all_days, mean_train_MSE_all_Days, MSE_H, score_cv, X_pred_cv_all, y_CV_all, df_cv, df_H
 
